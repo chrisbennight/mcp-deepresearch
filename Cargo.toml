@@ -31,3 +31,5 @@ reqwest = { version = "0.13", default-features = false, features = ["rustls", "j
 axum = "0.8"
 sha2 = "0.10"
 base64 = "0.22"
+restate-sdk = { version = "0.12", features = ["reqwest-client"] }
+jiff = { version = "0.2", default-features = false, features = ["std"] }

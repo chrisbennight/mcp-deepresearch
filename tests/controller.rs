@@ -139,6 +139,7 @@ async fn accepted_clarification_reaches_investigation_writing_and_review() {
     control.workspace.status = Status::InputRequired {
         question: "Should cost or recovery take priority?".into(),
     };
+    control.workspace.request.context = "x".repeat(16_000);
     control.provide_input("The latter.").unwrap();
     while let Some(assignment) = control.assignment(runtime::unix_seconds()) {
         assert!(

@@ -178,8 +178,18 @@ pub enum AssignmentKind {
     Review,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
+pub struct TraceContext {
+    pub traceparent: Option<String>,
+    pub tracestate: Option<String>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct Assignment {
+    #[serde(default)]
+    pub deadline_unix_seconds: Option<u64>,
+    #[serde(default)]
+    pub trace_context: TraceContext,
     pub research_id: ResearchId,
     pub number: u32,
     pub kind: AssignmentKind,
@@ -190,6 +200,23 @@ pub struct Assignment {
     pub context: String,
     pub remaining_seconds: u64,
     pub remaining_tool_calls: u32,
+}
+
+impl Assignment {
+    pub fn time_remaining(&self) -> std::time::Duration {
+        let allowance = std::time::Duration::from_secs(self.remaining_seconds);
+        match self.deadline_unix_seconds {
+            Some(deadline) => allowance.min(time_until(deadline)),
+            None => allowance,
+        }
+    }
+}
+
+pub fn time_until(deadline: u64) -> std::time::Duration {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock after epoch");
+    std::time::Duration::from_secs(deadline).saturating_sub(now)
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]

@@ -8,6 +8,10 @@ use tokio_util::sync::CancellationToken;
 
 #[derive(Clone, Debug, thiserror::Error, serde::Serialize, serde::Deserialize)]
 pub enum RuntimeError {
+    #[error(
+        "worker interrupted by service shutdown; preserved material is available for an explicit revision"
+    )]
+    Interrupted,
     #[error("assignment cancelled after worker termination")]
     Cancelled,
     #[error("assignment exceeded its time allowance")]

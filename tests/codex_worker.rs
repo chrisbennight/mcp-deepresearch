@@ -21,6 +21,8 @@ fn config(script: &str) -> CodexConfig {
 }
 fn assignment() -> Assignment {
     Assignment {
+        deadline_unix_seconds: None,
+        trace_context: TraceContext::default(),
         research_id: ResearchId::default(),
         number: 1,
         kind: AssignmentKind::Investigate,
@@ -182,4 +184,46 @@ async fn malformed_output_and_crash_after_output_do_not_trigger_blind_retries() 
         );
         std::fs::remove_dir_all(config.work_root).unwrap();
     }
+}
+
+#[tokio::test]
+async fn cancellation_before_delivery_prevents_a_late_worker_launch() {
+    let config = config("codex-success.sh");
+    let runtime = CodexRuntime::new(config.clone()).unwrap();
+    let assignment = assignment();
+    runtime
+        .stop_if_started(assignment.research_id, assignment.number)
+        .await
+        .unwrap();
+    assert!(matches!(
+        runtime
+            .execute(assignment.clone(), CancellationToken::new())
+            .await,
+        Err(RuntimeError::Cancelled)
+    ));
+    assert!(
+        !config
+            .work_root
+            .join(format!("{}-{}", assignment.research_id, assignment.number))
+            .join("launches.txt")
+            .exists()
+    );
+    std::fs::remove_dir_all(config.work_root).unwrap();
+}
+
+#[tokio::test]
+async fn an_expired_absolute_deadline_never_launches_a_worker() {
+    let mut assignment = assignment();
+    assignment.deadline_unix_seconds = Some(1);
+    let config = config("codex-success.sh");
+    let directory = config
+        .work_root
+        .join(format!("{}-1", assignment.research_id));
+    let runtime = CodexRuntime::new(config.clone()).unwrap();
+    assert!(matches!(
+        runtime.execute(assignment, CancellationToken::new()).await,
+        Err(RuntimeError::TimedOut)
+    ));
+    assert!(!directory.join("launches.txt").exists());
+    std::fs::remove_dir_all(config.work_root).unwrap();
 }

@@ -20,3 +20,5 @@ jobs:
         run: cargo build --locked
       - name: Tests
         run: cargo test --locked
+      - name: Native MCP and Restate integration
+        run: scripts/test-integration.sh

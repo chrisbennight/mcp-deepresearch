@@ -149,6 +149,7 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
     let server = tokio::spawn(axum::serve(listener, router).into_future());
     let source = AssignmentSources::start(
         SourceConfig {
+            trace_context: mcp_deepresearch::research::TraceContext::default(),
             endpoint: format!("{origin}/mcp"),
             token: None,
             tools: vec!["search".into(), "read".into()],
@@ -303,6 +304,7 @@ async fn cancelling_stalled_tool_discovery_returns_without_waiting_for_timeout()
     let starting = tokio::spawn(async move {
         AssignmentSources::start(
             SourceConfig {
+                trace_context: mcp_deepresearch::research::TraceContext::default(),
                 endpoint: format!("{origin}/mcp"),
                 token: None,
                 tools: vec!["search".into()],
