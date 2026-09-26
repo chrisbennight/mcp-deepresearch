@@ -62,6 +62,10 @@ impl Controller {
         }
         Some(Assignment {
             attachments: self.workspace.attachments.clone(),
+            deadline_unix_seconds: Some(
+                self.started_at
+                    .saturating_add(self.workspace.request.limits.wall_seconds),
+            ),
             trace_context: self.trace_context.clone(),
             research_id: self.workspace.id,
             number: self.workspace.assignments_completed + 1,

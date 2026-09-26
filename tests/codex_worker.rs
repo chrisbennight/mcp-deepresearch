@@ -22,6 +22,7 @@ fn config(script: &str) -> CodexConfig {
 fn assignment() -> Assignment {
     Assignment {
         attachments: Vec::new(),
+        deadline_unix_seconds: None,
         trace_context: TraceContext::default(),
         research_id: ResearchId::default(),
         number: 1,
@@ -208,5 +209,22 @@ async fn cancellation_before_delivery_prevents_a_late_worker_launch() {
             .join("launches.txt")
             .exists()
     );
+    std::fs::remove_dir_all(config.work_root).unwrap();
+}
+
+#[tokio::test]
+async fn an_expired_absolute_deadline_never_launches_a_worker() {
+    let mut assignment = assignment();
+    assignment.deadline_unix_seconds = Some(1);
+    let config = config("codex-success.sh");
+    let directory = config
+        .work_root
+        .join(format!("{}-1", assignment.research_id));
+    let runtime = CodexRuntime::new(config.clone()).unwrap();
+    assert!(matches!(
+        runtime.execute(assignment, CancellationToken::new()).await,
+        Err(RuntimeError::TimedOut)
+    ));
+    assert!(!directory.join("launches.txt").exists());
     std::fs::remove_dir_all(config.work_root).unwrap();
 }
