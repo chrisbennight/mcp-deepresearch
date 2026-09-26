@@ -154,6 +154,8 @@ pub struct Source {
     pub title: String,
     /// Retrieved evidence, distinct from the worker's interpretation in Finding.
     pub excerpt: String,
+    #[serde(default)]
+    pub needs_refresh: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

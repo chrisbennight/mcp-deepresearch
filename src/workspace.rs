@@ -58,6 +58,9 @@ impl Workspace {
         }
         let mut revision = Self::new(principal.to_owned(), request)?;
         revision.sources = self.sources.clone();
+        for source in revision.sources.values_mut() {
+            source.needs_refresh = true;
+        }
         revision.notes = self.notes.clone();
         revision.uncertainties = self.uncertainties.clone();
         revision.outline = self.outline.clone();
@@ -133,7 +136,9 @@ impl Workspace {
                     .count(),
             )
         });
-        let mut output = String::new();
+        let mut output = String::from(
+            "Selected context: additional evidence, notes, or draft text may be omitted by the context budget.\n",
+        );
         let limit = self.request.limits.context_chars;
         append_bounded(
             &mut output,
@@ -151,8 +156,16 @@ impl Workspace {
             append_bounded(
                 &mut output,
                 &format!(
-                    "\nSOURCE [{}] {} {}\n{}\n",
-                    source.id, source.title, source.url, source.excerpt
+                    "\nSOURCE [{}] {} {} {}\n{}\n",
+                    source.id,
+                    source.title,
+                    source.url,
+                    if source.needs_refresh {
+                        "INHERITED: recheck time-sensitive facts"
+                    } else {
+                        ""
+                    },
+                    source.excerpt
                 ),
                 evidence_limit,
             );
@@ -203,6 +216,9 @@ impl Workspace {
             }
             _ => (),
         }
+        if self.sources.values().any(|source| source.needs_refresh) {
+            report.push_str("\n\nSome evidence was inherited from an earlier investigation; time-sensitive facts require rechecking.");
+        }
         report.push_str("\n\n## Sources\n");
         for source in self.sources.values() {
             report.push_str(&format!(
@@ -217,10 +233,17 @@ impl Workspace {
 }
 
 fn append_bounded(output: &mut String, text: &str, limit: usize) {
-    output.extend(
-        text.chars()
-            .take(limit.saturating_sub(output.chars().count())),
-    );
+    let available = limit.saturating_sub(output.chars().count());
+    if text.chars().count() <= available {
+        output.push_str(text);
+    } else {
+        const MARKER: &str = "\n[truncated]\n";
+        let marker_len = MARKER.chars().count();
+        if available >= marker_len {
+            output.extend(text.chars().take(available - marker_len));
+            output.push_str(MARKER);
+        }
+    }
 }
 
 /// Citation syntax is [S<number>]. This checks existence, not semantic support.

@@ -10,6 +10,7 @@ fn result() -> AssignmentResult {
             url: "https://example.org/durability".into(),
             title: "Durability".into(),
             excerpt: "Durable workflows resume completed steps.".into(),
+            needs_refresh: false,
         }],
         findings: vec![Finding {
             text: "Recovery can reuse finished work.".into(),
@@ -40,7 +41,13 @@ fn persisted_revision_reuses_evidence_without_sharing_writes() {
         store.load(original.id, "alice").unwrap().draft,
         original.draft
     );
-    assert!(revision.sources.contains_key("S1"));
+    assert!(revision.sources["S1"].needs_refresh);
+    assert!(
+        revision
+            .context("durability")
+            .contains("recheck time-sensitive facts")
+    );
+    assert!(revision.report().contains("require rechecking"));
     std::fs::remove_dir_all(root).unwrap();
 }
 #[test]
@@ -78,11 +85,14 @@ fn context_is_bounded_and_selects_relevant_evidence() {
             url: "https://example.org/unrelated".into(),
             title: "Unrelated".into(),
             excerpt: "界".repeat(50_000),
+            needs_refresh: false,
         },
     );
     let context = workspace.context("durability");
     assert!(context.chars().count() <= workspace.request.limits.context_chars);
     assert!(context.contains("Durable workflows"));
+    assert!(context.contains("[truncated]"));
+    assert!(context.contains("may be omitted"));
     assert!(!workspace.tool_usage_complete);
 }
 #[test]
