@@ -19,7 +19,6 @@ use std::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
-    time::Duration,
 };
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
@@ -419,7 +418,11 @@ async fn run_process(
     slots: Arc<Semaphore>,
     progress: &watch::Sender<WorkerSnapshot>,
 ) -> Result<AssignmentResult, RuntimeError> {
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(assignment.remaining_seconds);
+    let remaining = assignment.time_remaining();
+    if remaining.is_zero() {
+        return Err(RuntimeError::TimedOut);
+    }
+    let deadline = tokio::time::Instant::now() + remaining;
     let _permit = tokio::select! {
         permit = slots.acquire_owned() => permit.map_err(|_| RuntimeError::Failed("worker capacity closed".into()))?,
         _ = cancel.cancelled() => return Err(RuntimeError::Cancelled),

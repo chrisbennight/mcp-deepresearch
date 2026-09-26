@@ -31,7 +31,12 @@ impl Worker {
                 delay,
                 clarification,
             } => {
+                let remaining = assignment.time_remaining();
+                if remaining.is_zero() {
+                    return Err(RuntimeError::TimedOut);
+                }
                 tokio::select! {
+                    _ = tokio::time::sleep(remaining) => return Err(RuntimeError::TimedOut),
                     _ = cancel.cancelled() => return Err(RuntimeError::Cancelled),
                     _ = tokio::time::sleep(*delay) => (),
                 }
@@ -147,6 +152,10 @@ impl Research {
         };
         state.controller.trace_context = submission.trace_context;
         ctx.set("research", Json(state.clone()));
+        let deadline = state
+            .controller
+            .started_at
+            .saturating_add(state.controller.workspace.request.limits.wall_seconds);
         loop {
             let now = ctx
                 .run(|| async { Ok(runtime::unix_seconds()) })
@@ -185,7 +194,7 @@ impl Research {
                 let answer = restate_sdk::select! {
                     answer=ctx.promise::<Json<Clarification>>(&name) => Some(answer?),
                     cancelled=ctx.promise::<bool>("cancel") => { cancelled?; state.controller.workspace.status=Status::Cancelled;None },
-                    timer=ctx.sleep(Duration::from_secs(remaining)) => { timer?;state.controller.workspace.status=Status::Exhausted{reason:"wall-clock limit while awaiting input".into()};None },
+                    timer=ctx.sleep(time_until(deadline)) => { timer?;state.controller.workspace.status=Status::Exhausted{reason:"wall-clock limit while awaiting input".into()};None },
                 };
                 if let Some(answer) = answer {
                     match answer.into_inner() {
@@ -216,7 +225,7 @@ impl Research {
             let outcome = restate_sdk::select! {
                 result=execution => Some(result?.into_inner()),
                 cancelled=ctx.promise::<bool>("cancel") => { cancelled?;None },
-                timer=ctx.sleep(Duration::from_secs(remaining)) => { timer?;Some(Err(RuntimeError::TimedOut)) },
+                timer=ctx.sleep(time_until(deadline)) => { timer?;Some(Err(RuntimeError::TimedOut)) },
                 on_cancel => { return Err(TerminalError::new("research invocation interrupted").into()); }
             };
             if outcome.is_none() || matches!(outcome, Some(Err(RuntimeError::TimedOut))) {
@@ -245,6 +254,11 @@ impl Research {
                 state.controller.workspace.status = Status::Cancelled;
                 break;
             }
+            let delivered_at = ctx
+                .run(|| async { Ok(runtime::unix_seconds()) })
+                .name("observe result delivery time")
+                .await?;
+            state.updated_at = delivered_at;
             match outcome {
                 Some(Ok(result)) => {
                     if let Err(error) = state.controller.complete(result) {
@@ -266,6 +280,16 @@ impl Research {
                         reason: error.to_string(),
                     }
                 }
+            }
+            if delivered_at >= deadline
+                && !matches!(
+                    state.controller.workspace.status,
+                    Status::Cancelled | Status::Failed { .. }
+                )
+            {
+                state.controller.workspace.status = Status::Exhausted {
+                    reason: "wall-clock limit".into(),
+                };
             }
             ctx.set("research", Json(state.clone()));
         }
