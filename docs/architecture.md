@@ -41,3 +41,24 @@ Current protocol references:
 - [Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http)
 - [Tasks](https://modelcontextprotocol.io/extensions/tasks/overview)
 - [Restate services](https://docs.restate.dev/foundations/services)
+
+## Shared research data
+
+The `research` module defines requests, strategies, assignment inputs and returns,
+resource limits, and lifecycle states independently of MCP and the model runtime.
+A research identifier also identifies its writable workspace. A revision of a
+terminal investigation receives a fresh identifier and copies useful evidence;
+it cannot concurrently overwrite the original investigation. Runtime session IDs
+will remain separate from research and assignment identifiers.
+
+The `workspace` module keeps retrieved excerpts separate from interpreted findings.
+Only the workflow parent applies worker returns. It rejects results after termination
+and references to missing evidence before changing notes. Citation existence checks
+cannot establish that an excerpt actually supports a claim; substantive review remains
+agent and human work. Context assembly selects relevant excerpts within a character
+budget. Unknown tool usage remains unknown rather than being reported as zero usage.
+
+Local snapshots are for standalone use; Restate will own durable workflow state.
+The snapshot store assumes one parent writer per workspace. Operators must protect
+the workspace directory as confidential data. No immutable history or claim database
+is maintained. Native Tasks, file transfers, and worker execution remain unimplemented.
