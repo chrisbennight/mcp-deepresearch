@@ -14,7 +14,8 @@ Authenticate a dedicated Codex home using the normal Codex login flow. Configure
 | `DEEPRESEARCH_CODEX_HOME` | Dedicated authenticated Codex home, kept outside the repository |
 | `DEEPRESEARCH_GATEWAY_URL` | Source gateway MCP endpoint |
 | `DEEPRESEARCH_SOURCE_TOOLS` | Comma-separated search/read tool allowlist, using actual gateway tool names |
-| `DEEPRESEARCH_SOURCE_TOKEN` | Separately scoped source credential injected by the operator; never an inbound caller assertion |
+| `DEEPRESEARCH_SOURCE_TOKEN` | Separately scoped source credential used by the host; never an inbound caller assertion |
+| `DEEPRESEARCH_FILE_ORIGINS` | Optional additional HTTPS origins approved for native file downloads |
 | `DEEPRESEARCH_CODEX_EXECUTABLE` | Optional executable path, default `codex` |
 | `DEEPRESEARCH_MODEL` | Optional model choice, otherwise the Codex default |
 | `DEEPRESEARCH_MAX_WORKERS` | Concurrent worker processes, default `1` |
@@ -32,7 +33,7 @@ Keep authenticated homes and workspaces private. Account refresh may write to th
 Codex home; do not bake credentials into an image or copy them into committed examples.
 
 The adapter ignores ordinary user configuration and rule files, disables shell tools,
-subagents and built-in web search, and supplies only configured MCP source tools during
+subagents and built-in web search, and connects to the host-managed [source adapter](source-access.md) during
 investigation. Writing and review use collected evidence without a gateway connection.
 Use a gateway credential restricted to source operations: never permit administrative
 operations, generic code execution, or recursive research calls in that allowlist.
@@ -54,10 +55,11 @@ process group on service death; an abrupt host/process crash cannot be cleaned u
 Rust destructors. Normal cancellation and deadlines kill and reap the owned process
 group before acknowledging termination.
 
-Capacity waits count against the assignment's elapsed-time allowance. Tool-call
-limits are observed from Codex events: detection can occur after a call was dispatched,
-so the gateway remains responsible for hard authoritative quotas. The worker is stopped
-when the observed allowance is exceeded. Model usage is taken from runtime events,
+Capacity waits count against the assignment's elapsed-time allowance. The host source
+adapter reserves a call from the assignment allowance before dispatch. Codex events
+provide an additional observed count; gateway account quotas remain the gateway's
+responsibility. The worker is stopped when its observed allowance is exceeded.
+Model usage is taken from runtime events,
 not model-authored numbers; absent counts remain unavailable.
 
 The adapter does not persist raw event logs or stderr. It retains only the session

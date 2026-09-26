@@ -14,9 +14,7 @@ fn config(script: &str) -> CodexConfig {
             .join(script),
         auth_home: root.join("empty-auth"),
         work_root: root,
-        gateway_url: "http://127.0.0.1:1/mcp".into(),
-        source_tools: vec!["fixture_search".into()],
-        token_env: "UNSET_FIXTURE_TOKEN".into(),
+        sources: None,
         model: None,
         max_workers: 1,
     }
