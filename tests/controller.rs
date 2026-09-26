@@ -35,6 +35,7 @@ async fn all_strategies_produce_cited_fixture_answers_through_shared_execution()
         assert!(control.workspace.report().contains("[S1]"));
         assert!(control.workspace.report().contains("invented fixture"));
         assert!(!control.workspace.outline.is_empty());
+        assert!(!control.workspace.draft.contains("| Candidate |"));
     }
 }
 
@@ -135,4 +136,17 @@ fn accepted_clarification_reaches_next_assignment_even_when_old_context_is_full(
             .contains("Prioritize recovery over latency.")
     );
     assert!(assignment.context.chars().count() <= 2000);
+}
+
+#[tokio::test]
+async fn cancellation_while_waiting_prevents_subsequent_clarification() {
+    let mut control = controller(Strategy::Focused);
+    control.workspace.status = Status::InputRequired {
+        question: "Which criteria?".into(),
+    };
+    let cancel = CancellationToken::new();
+    cancel.cancel();
+    runtime::run(&FixtureRuntime::default(), &mut control, cancel).await;
+    assert_eq!(control.workspace.status, Status::Cancelled);
+    assert!(control.provide_input("Prioritize cost").is_err());
 }

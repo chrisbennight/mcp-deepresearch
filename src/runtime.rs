@@ -39,11 +39,14 @@ pub async fn run<R: AgentRuntime>(
     controller: &mut Controller,
     cancel: CancellationToken,
 ) {
-    while let Some(assignment) = controller.assignment(unix_seconds()) {
-        if cancel.is_cancelled() {
+    loop {
+        if cancel.is_cancelled() && !controller.workspace.status.terminal() {
             controller.workspace.status = Status::Cancelled;
             return;
         }
+        let Some(assignment) = controller.assignment(unix_seconds()) else {
+            break;
+        };
         match runtime.execute(assignment, cancel.child_token()).await {
             Ok(result) if !cancel.is_cancelled() => {
                 if let Err(error) = controller.complete(result) {
@@ -132,12 +135,7 @@ impl AgentRuntime for FixtureRuntime {
                     "# Fixture research\n\nQuestion: {}\n\n",
                     assignment.objective
                 );
-                if assignment.format == OutputFormat::Table
-                    || matches!(
-                        assignment.strategy,
-                        Strategy::Comparison | Strategy::Collection
-                    )
-                {
+                if assignment.format == OutputFormat::Table {
                     draft.push_str("| Candidate | Evidence |\n|---|---|\n");
                     for source in &self.sources {
                         draft.push_str(&format!(
