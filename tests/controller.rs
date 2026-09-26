@@ -137,16 +137,14 @@ async fn accepted_clarification_reaches_investigation_writing_and_review() {
     control.workspace.request.limits.context_chars = 2000;
     control.workspace.request.context = "Old background. ".repeat(200);
     control.workspace.status = Status::InputRequired {
-        question: "Which criteria matter?".into(),
+        question: "Should cost or recovery take priority?".into(),
     };
-    control
-        .provide_input("Prioritize recovery over latency.")
-        .unwrap();
+    control.provide_input("The latter.").unwrap();
     while let Some(assignment) = control.assignment(runtime::unix_seconds()) {
         assert!(
             assignment
                 .objective
-                .contains("Prioritize recovery over latency.")
+                .contains("Clarification question: Should cost or recovery take priority?\nUser clarification: The latter.")
         );
         assert!(assignment.context.chars().count() <= 2000);
         let result = FixtureRuntime::default()

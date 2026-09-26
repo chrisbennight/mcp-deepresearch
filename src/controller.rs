@@ -127,18 +127,18 @@ impl Controller {
     }
 
     pub fn provide_input(&mut self, input: &str) -> Result<(), ResearchError> {
-        if !matches!(self.workspace.status, Status::InputRequired { .. }) {
+        let Status::InputRequired { question } = &self.workspace.status else {
             return Err(ResearchError::Invalid(
                 "investigation is not waiting for input".into(),
             ));
-        }
+        };
         if input.trim().is_empty() || input.chars().count() > 16_000 {
             return Err(ResearchError::Invalid(
                 "input must contain 1–16000 characters".into(),
             ));
         }
         let context = format!(
-            "{}\nUser clarification: {input}",
+            "{}\nClarification question: {question}\nUser clarification: {input}",
             self.workspace.request.context
         );
         if context.chars().count() > 16_000 {
