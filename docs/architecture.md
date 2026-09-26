@@ -61,4 +61,24 @@ budget. Unknown tool usage remains unknown rather than being reported as zero us
 Local snapshots are for standalone use; Restate will own durable workflow state.
 The snapshot store assumes one parent writer per workspace. Operators must protect
 the workspace directory as confidential data. No immutable history or claim database
-is maintained. Native Tasks, file transfers, and worker execution remain unimplemented.
+is maintained. Native Tasks, file transfers, and live worker execution remain unimplemented.
+
+
+## Controller and runtime
+
+`Controller` chooses the next meaningful assignment from worker proposals. It carries
+an evolving focus and strategy, reserves the final available assignment for writing,
+and bounds review follow-ups. Strategy is independent of output format. Investigation,
+synthesis, and review all pass through `AgentRuntime`; no separate model API is hidden
+in the controller. Clarification waits preserve state and accept an explicit user reply.
+The original elapsed-time allowance continues during a wait.
+
+The standalone driver uses a deterministic fixture runtime and handles cancellation,
+failure, and partial output. A live runtime must enforce its supplied deadline and
+report cancellation only after its external worker has stopped. Restate integration
+will persist the same controller between assignments; the standalone snapshot is not
+an execution queue and does not resume a running external process.
+
+Fixture tests establish orchestration behavior, including strategy transitions and
+bounded review. They do not measure answer quality or prove that a model investigates
+the right questions. Those require matched live evaluation and human judgment.
