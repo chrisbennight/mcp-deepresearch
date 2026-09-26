@@ -144,16 +144,16 @@ impl Research {
         workspace.attachments = submission.attachments;
         for (index, attachment) in workspace.attachments.iter().enumerate() {
             let id = format!("S{}", 1_000_000 + index);
-            workspace.sources.insert(
-                id.clone(),
-                Source {
+            workspace
+                .sources
+                .entry(id.clone())
+                .or_insert_with(|| Source {
                     id,
                     url: attachment.uri.clone(),
                     title: attachment.name.clone(),
                     excerpt: attachment.excerpt.clone(),
                     needs_refresh: false,
-                },
-            );
+                });
         }
         let mut state = ResearchState {
             controller: Controller::new(workspace, submission.created_at),
