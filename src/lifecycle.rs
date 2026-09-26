@@ -274,6 +274,13 @@ impl Research {
                 .name("observe result delivery time")
                 .await?;
             state.updated_at = delivered_at;
+            // Preserve accepted material when an assignment arrives after its deadline.
+            if delivered_at >= deadline {
+                state.controller.workspace.status = Status::Exhausted {
+                    reason: "wall-clock limit".into(),
+                };
+                break;
+            }
             match outcome {
                 Some(Ok(result)) => {
                     if let Err(error) = state.controller.complete(result) {
@@ -295,16 +302,6 @@ impl Research {
                         reason: error.to_string(),
                     }
                 }
-            }
-            if delivered_at >= deadline
-                && !matches!(
-                    state.controller.workspace.status,
-                    Status::Cancelled | Status::Failed { .. }
-                )
-            {
-                state.controller.workspace.status = Status::Exhausted {
-                    reason: "wall-clock limit".into(),
-                };
             }
             ctx.set("research", Json(state.clone()));
         }
