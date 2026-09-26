@@ -102,7 +102,7 @@ impl ServerHandler for Gateway {
     ) -> Result<CustomResult, ErrorData> {
         assert_eq!(request.method, "files/authorizeDownload");
         Ok(CustomResult::new(
-            json!({"file":{"uri":"mcp-file://fixture/paper","size":PAPER.len()},"download":{"transport":"http","method":"GET","url":format!("{}/paper",self.origin),"headers":{"x-transfer-test":"host-only"}}}),
+            json!({"file":{"uri":"mcp-file://fixture/paper","size":PAPER.len()},"download":{"transport":"https","method":"GET","url":format!("{}/paper",self.origin),"headers":{"x-transfer-test":"host-only"}}}),
         ))
     }
 }

@@ -534,7 +534,7 @@ impl SourceAccess {
             || !url.username().is_empty()
             || url.password().is_some()
             || authorization.download.method != "GET"
-            || authorization.download.transport != url.scheme()
+            || authorization.download.transport != "https"
             || !(url.scheme() == "https" || (same_origin && self.endpoint.scheme() == "http"))
         {
             return Err(failure("source file transfer destination is not approved"));
