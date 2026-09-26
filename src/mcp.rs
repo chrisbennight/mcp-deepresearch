@@ -450,8 +450,8 @@ impl ServerHandler for ResearchMcp {
                 ));
             }
         };
-        let mut value = value;
-        value["_meta"] = serde_json::to_value(trust(false)).expect("metadata serializes");
+        // Native transfer authorization is a host control response, not a tool result.
+        // A top-level tool-result _meta makes current SDKs misclassify this custom result.
         Ok(CustomResult::new(value))
     }
     async fn cancel_task(

@@ -235,6 +235,11 @@ async fn native_tasks_survive_reconnect_restart_and_support_input_revision_and_c
         json!({"name":"brief.md","mimeType":"text/markdown","size":43}),
     )
     .await;
+    assert!(matches!(
+        serde_json::from_value::<rmcp::model::ServerResult>(authorization["result"].clone())
+            .unwrap(),
+        rmcp::model::ServerResult::CustomResult(_)
+    ));
     let uploaded = authorization["result"]["file"]["uri"].as_str().unwrap();
     let descriptor = &authorization["result"]["upload"];
     let upload = client
