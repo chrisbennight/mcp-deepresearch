@@ -71,6 +71,7 @@ struct SourceAccess {
 struct Material {
     path: PathBuf,
     remote: Option<FileValue>,
+    nested_files: bool,
 }
 
 /// A private, temporary MCP endpoint for one assignment. Dropping it revokes access.
@@ -363,6 +364,7 @@ impl SourceAccess {
                 Material {
                     path,
                     remote: Some(file),
+                    nested_files: false,
                 },
             );
             return match self.read_material(&id, 0).await {
@@ -372,18 +374,22 @@ impl SourceAccess {
                 ),
             };
         }
-        let text = if let Some(value) = result.get("structuredContent") {
-            serde_json::to_string(value).expect("JSON serializes")
-        } else {
-            result
-                .get("content")
-                .and_then(Value::as_array)
-                .into_iter()
-                .flatten()
-                .filter_map(|c| c.get("text").and_then(Value::as_str))
-                .collect::<Vec<_>>()
-                .join("\n")
-        };
+        let mut parts = Vec::new();
+        if let Some(value) = result.get("structuredContent") {
+            parts.push(serde_json::to_string(value).expect("JSON serializes"));
+        }
+        for text in result
+            .get("content")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|content| content.get("text").and_then(Value::as_str))
+        {
+            if !parts.iter().any(|part| part == text) {
+                parts.push(text.to_owned());
+            }
+        }
+        let text = parts.join("\n\n");
         if text.len() > MAX_FILE_BYTES {
             return Err(failure("source material exceeds the text ingestion limit"));
         }
@@ -395,11 +401,21 @@ impl SourceAccess {
         tokio::fs::write(&path, &text)
             .await
             .map_err(|_| failure("source material storage unavailable"))?;
-        self.materials
-            .lock()
-            .await
-            .insert(id.clone(), Material { path, remote: None });
-        Ok(excerpt(&text, &id, 0))
+        self.materials.lock().await.insert(
+            id.clone(),
+            Material {
+                path,
+                remote: None,
+                nested_files: contains_file_reference(&result),
+            },
+        );
+        let mut selected = excerpt(&text, &id, 0);
+        if contains_file_reference(&result) {
+            selected["delivery_limitations"] = json!([
+                "Nested file references were not downloaded. Only inline text and metadata were read; use a configured extraction tool for the referenced documents."
+            ]);
+        }
+        Ok(selected)
     }
     async fn read_material(&self, id: &str, offset: usize) -> Result<Value, RuntimeError> {
         let material = self
@@ -423,7 +439,13 @@ impl SourceAccess {
                     "source material is not readable UTF-8 text; use a configured extraction tool",
                 )
             })?;
-        Ok(excerpt(&text, id, offset))
+        let mut selected = excerpt(&text, id, offset);
+        if material.nested_files {
+            selected["delivery_limitations"] = json!([
+                "Nested file references were not downloaded. Only inline text and metadata were read."
+            ]);
+        }
+        Ok(selected)
     }
     async fn download(&self, file: &FileValue, path: &Path) -> Result<(), RuntimeError> {
         let authorized = self
@@ -525,6 +547,14 @@ fn excerpt(text: &str, id: &str, offset: usize) -> Value {
     let selected: String = text.chars().skip(offset).take(MAX_EXCERPT_CHARS).collect();
     let next = offset + selected.chars().count();
     json!({"material_id":id,"text":selected,"offset":offset,"next_offset":if text.chars().count()>next {Some(next)} else {None},"evidence_note":"Retrieved tool material. Search snippets are leads, not proof of full-document reading. Cite original URLs and distinguish extracted source text from inference."})
+}
+fn contains_file_reference(value: &Value) -> bool {
+    match value {
+        Value::String(text) => text.starts_with("mcp-file:"),
+        Value::Array(items) => items.iter().any(contains_file_reference),
+        Value::Object(object) => object.values().any(contains_file_reference),
+        _ => false,
+    }
 }
 fn retained_file(result: &Value) -> Option<&Value> {
     result

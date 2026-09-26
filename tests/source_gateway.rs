@@ -71,12 +71,28 @@ impl ServerHandler for Gateway {
             "search" => {
                 json!({"results":[{"url":"https://example.org/paper","snippet":"Search lead only"}]})
             }
+            "read"
+                if params
+                    .arguments
+                    .as_ref()
+                    .and_then(|a| a.get("nested"))
+                    .and_then(serde_json::Value::as_bool)
+                    == Some(true) =>
+            {
+                json!({"documents":[{"file":{"uri":"mcp-file://fixture/nested"}}]})
+            }
             "read" => {
                 json!({"result":{"file":{"uri":"mcp-file://fixture/paper","size":PAPER.len()}}})
             }
             _ => panic!("non-source operation escaped the allowlist"),
         };
-        Ok(CallToolResult::structured(value).into())
+        let mut result = CallToolResult::structured(value);
+        if params.name == "search" {
+            result.content.push(ContentBlock::text(
+                "Distinct text supplied alongside structured metadata.",
+            ));
+        }
+        Ok(result.into())
     }
     async fn on_custom_request(
         &self,
@@ -138,7 +154,7 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
             tools: vec!["search".into(), "read".into()],
             file_origins: vec![],
         },
-        4,
+        5,
         stop.clone(),
         directory.clone(),
     )
@@ -177,11 +193,15 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
         .await
         .unwrap();
     assert!(
-        search.structured_content.unwrap()["text"]
+        search.structured_content.as_ref().unwrap()["text"]
             .as_str()
             .unwrap()
             .contains("Search lead only")
     );
+    let mixed = search.structured_content.as_ref().unwrap()["text"]
+        .as_str()
+        .unwrap();
+    assert!(mixed.contains("Distinct text supplied alongside structured metadata."));
     let read = client
         .call_tool(CallToolRequestParams::new("read"))
         .await
@@ -219,12 +239,25 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
             .unwrap()
             .contains("ingestion limit")
     );
+    let nested = client
+        .call_tool(
+            CallToolRequestParams::new("read")
+                .with_arguments(json!({"nested":true}).as_object().unwrap().clone()),
+        )
+        .await
+        .unwrap();
+    assert!(
+        nested.structured_content.unwrap()["delivery_limitations"][0]
+            .as_str()
+            .unwrap()
+            .contains("not downloaded")
+    );
     let exhausted = client
         .call_tool(CallToolRequestParams::new("search"))
         .await
         .unwrap();
     assert_eq!(exhausted.is_error, Some(true));
-    assert_eq!(calls.load(Ordering::SeqCst), 3);
+    assert_eq!(calls.load(Ordering::SeqCst), 4);
     client.cancel().await.unwrap();
     drop(source);
     stop.cancel();

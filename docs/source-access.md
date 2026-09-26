@@ -46,6 +46,10 @@ and SHA-256 integrity requirements match. This digest is a file-transfer check,
 not a research history or transaction ledger. The current reader accepts UTF-8 text;
 use a configured extraction tool for PDFs and other binary formats.
 
+Mixed results retain both structured metadata and distinct text blocks. Nested
+`mcp-file:` references outside the supported retained-result envelopes are reported
+as an explicit delivery limitation; their presence does not mean their bytes were read.
+
 The worker receives up to 32,000 characters with a material identifier and the next
 character offset when more is available. `read_source_material` reads subsequent
 sections from the saved copy. Transfer URLs and headers stay host-side. Files stay
