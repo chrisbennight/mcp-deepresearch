@@ -208,6 +208,17 @@ async fn native_tasks_survive_reconnect_restart_and_support_input_revision_and_c
     let task = submitted["result"]["taskId"].as_str().unwrap().to_owned();
     let retry = rpc(&client, &url, "tools/call", submit(id, None, 60)).await;
     assert_eq!(retry["result"]["taskId"], task);
+    let detached_retry = rpc(
+        &client,
+        &url,
+        "tools/call",
+        submit(id, Some(Uuid::new_v4()), 60),
+    )
+    .await;
+    assert_eq!(
+        detached_retry["result"]["taskId"], task,
+        "an existing request must not depend on parent availability"
+    );
     let waiting = wait_status(&client, &url, &task, "input_required").await;
     application.restart();
     application.ready().await;

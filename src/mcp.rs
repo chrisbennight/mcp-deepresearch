@@ -98,17 +98,24 @@ fn timestamp(seconds: u64) -> String {
 
 impl ResearchMcp {
     async fn state(&self, id: ResearchId) -> Result<ResearchState, ErrorData> {
-        ResearchIngressClient::from_client(self.ingress.clone(), workflow_key(&self.principal, id))
-            .status(Json(Owner {
-                principal: self.principal.clone(),
-            }))
-            .call()
-            .await
-            .map_err(|_| unavailable())?
-            .into_body()
-            .map_err(|_| unavailable())?
-            .into_inner()
+        self.existing(id)
+            .await?
             .ok_or_else(|| error("research is not available or has expired"))
+    }
+    async fn existing(&self, id: ResearchId) -> Result<Option<ResearchState>, ErrorData> {
+        Ok(ResearchIngressClient::from_client(
+            self.ingress.clone(),
+            workflow_key(&self.principal, id),
+        )
+        .status(Json(Owner {
+            principal: self.principal.clone(),
+        }))
+        .call()
+        .await
+        .map_err(|_| unavailable())?
+        .into_body()
+        .map_err(|_| unavailable())?
+        .into_inner())
     }
     async fn cancel(&self, id: ResearchId) -> Result<(), ErrorData> {
         ResearchIngressClient::from_client(self.ingress.clone(), workflow_key(&self.principal, id))
@@ -221,6 +228,11 @@ impl ServerHandler for ResearchMcp {
                     .request
                     .validate()
                     .map_err(|e| error(&e.to_string()))?;
+                if let Some(state) = self.existing(input.request_id).await? {
+                    return Ok(CreateTaskResult::new(Self::task(&state))
+                        .with_meta(trust(false))
+                        .into());
+                }
                 let previous = if let Some(id) = input.previous {
                     let previous = self.state(id).await?.controller.workspace;
                     previous
