@@ -79,7 +79,13 @@ pub struct Owner {
 pub struct UserInput {
     pub principal: String,
     pub question_id: u32,
-    pub answer: String,
+    pub response: Clarification,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub enum Clarification {
+    Answer(String),
+    Cancel,
 }
 
 pub fn workflow_key(owner: &str, id: ResearchId) -> String {
@@ -147,6 +153,9 @@ impl Research {
                 .name("observe elapsed time")
                 .await?;
             state.updated_at = now;
+            if state.controller.workspace.status.terminal() {
+                break;
+            }
             if ctx.peek_promise::<bool>("cancel").await?.is_some() {
                 state.controller.workspace.status = Status::Cancelled;
             }
@@ -174,12 +183,19 @@ impl Research {
                 ctx.set("research", Json(state.clone()));
                 let name = format!("input-{}", state.controller.workspace.assignments_completed);
                 let answer = restate_sdk::select! {
-                    answer=ctx.promise::<String>(&name) => Some(answer?),
+                    answer=ctx.promise::<Json<Clarification>>(&name) => Some(answer?),
                     cancelled=ctx.promise::<bool>("cancel") => { cancelled?; state.controller.workspace.status=Status::Cancelled;None },
                     timer=ctx.sleep(Duration::from_secs(remaining)) => { timer?;state.controller.workspace.status=Status::Exhausted{reason:"wall-clock limit while awaiting input".into()};None },
                 };
                 if let Some(answer) = answer {
-                    state.controller.provide_input(&answer).map_err(terminal)?;
+                    match answer.into_inner() {
+                        Clarification::Answer(answer) => {
+                            state.controller.provide_input(&answer).map_err(terminal)?
+                        }
+                        Clarification::Cancel => {
+                            state.controller.workspace.status = Status::Cancelled
+                        }
+                    }
                 }
                 continue;
             }
@@ -301,32 +317,29 @@ impl Research {
             .await?
             .ok_or_else(|| TerminalError::new_with_code(404, "research not found"))?
             .into_inner();
-        if state.controller.workspace.assignments_completed != input.question_id {
-            return Err(terminal("clarification is no longer current").into());
+        if state.controller.workspace.assignments_completed != input.question_id
+            || !matches!(
+                state.controller.workspace.status,
+                Status::InputRequired { .. }
+            )
+        {
+            return Ok(());
         }
-        state
-            .controller
-            .provide_input(&input.answer)
-            .map_err(terminal)?;
         let name = format!("input-{}", input.question_id);
-        if let Some(previous) = ctx.peek_promise::<String>(&name).await? {
-            if previous == input.answer {
-                return Ok(());
-            }
-            return Err(TerminalError::new_with_code(
-                409,
-                "a clarification answer was already accepted",
-            )
-            .into());
+        if ctx
+            .peek_promise::<Json<Clarification>>(&name)
+            .await?
+            .is_some()
+        {
+            return Ok(());
         }
-        ctx.resolve_promise(&name, input.answer.clone());
-        if ctx.promise::<String>(&name).await? != input.answer {
-            return Err(TerminalError::new_with_code(
-                409,
-                "a different clarification answer was accepted",
-            )
-            .into());
+        if let Clarification::Answer(answer) = &input.response {
+            state.controller.provide_input(answer).map_err(terminal)?;
         }
+        // The durable promise chooses one response. A delayed response can only
+        // resolve this question, never cancel a later stage or another question.
+        ctx.resolve_promise(&name, Json(input.response));
+        ctx.promise::<Json<Clarification>>(&name).await?;
         Ok(())
     }
 }

@@ -1,6 +1,9 @@
 //! MCP is a projection of Restate workflow state, not a second scheduler.
 use crate::{
-    lifecycle::{Owner, ResearchIngressClient, ResearchState, Submission, UserInput, workflow_key},
+    lifecycle::{
+        Clarification, Owner, ResearchIngressClient, ResearchState, Submission, UserInput,
+        workflow_key,
+    },
     research::{ResearchId, ResearchRequest, Status},
     runtime,
 };
@@ -316,26 +319,28 @@ impl ServerHandler for ResearchMcp {
         _: RequestContext<RoleServer>,
     ) -> Result<(), ErrorData> {
         let id = research_id(&request.task_id)?;
-        if request.input_responses.len() != 1 {
-            return Err(error(
-                "provide the single outstanding clarification response",
-            ));
+        let state = self.state(id).await?;
+        if !matches!(
+            state.controller.workspace.status,
+            Status::InputRequired { .. }
+        ) {
+            return Ok(());
         }
-        let (question, response) = request.input_responses.into_iter().next().unwrap();
-        let question_id = question
-            .parse()
-            .map_err(|_| error("invalid clarification identity"))?;
-        let answer=match response.get("action").and_then(Value::as_str) {
-            Some("cancel")=>return self.cancel(id).await,
-            Some("decline")=>"The user declined clarification. Proceed with available evidence and disclose assumptions.".to_owned(),
-            Some("accept")=>response.pointer("/content/answer").and_then(Value::as_str).ok_or_else(||error("clarification answer is required"))?.to_owned(),
+        let question_id = state.controller.workspace.assignments_completed;
+        let Some(response) = request.input_responses.get(&question_id.to_string()) else {
+            return Ok(());
+        };
+        let response=match response.get("action").and_then(Value::as_str) {
+            Some("cancel")=>Clarification::Cancel,
+            Some("decline")=>Clarification::Answer("The user declined clarification. Proceed with available evidence and disclose assumptions.".to_owned()),
+            Some("accept")=>Clarification::Answer(response.pointer("/content/answer").and_then(Value::as_str).ok_or_else(||error("clarification answer is required"))?.to_owned()),
             _=>return Err(error("invalid elicitation response")),
         };
         ResearchIngressClient::from_client(self.ingress.clone(), workflow_key(&self.principal, id))
             .provide_input(Json(UserInput {
                 principal: self.principal.clone(),
                 question_id,
-                answer,
+                response,
             }))
             .call()
             .await

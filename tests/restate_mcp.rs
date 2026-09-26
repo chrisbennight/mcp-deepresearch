@@ -221,8 +221,22 @@ async fn native_tasks_survive_reconnect_restart_and_support_input_revision_and_c
         .next()
         .unwrap()
         .clone();
-    let updated=rpc(&client,&url,"tasks/update",json!({"taskId":task,"inputResponses":{question:{"action":"accept","content":{"answer":"Recovery matters most."}}}})).await;
+    let unknown = rpc(
+        &client,
+        &url,
+        "tasks/update",
+        json!({"taskId":task,"inputResponses":{"unknown":{"action":"cancel"}}}),
+    )
+    .await;
+    assert_eq!(unknown["result"]["resultType"], "complete");
+    let still_waiting = wait_status(&client, &url, &task, "input_required").await;
+    assert_eq!(still_waiting["inputRequests"], restored["inputRequests"]);
+    let updated=rpc(&client,&url,"tasks/update",json!({"taskId":task,"inputResponses":{question.clone():{"action":"accept","content":{"answer":"Recovery matters most."}}}})).await;
     assert_eq!(updated["result"]["resultType"], "complete", "{updated}");
+    for action in ["accept", "cancel"] {
+        let replay = rpc(&client,&url,"tasks/update",json!({"taskId":task,"inputResponses":{question.clone():{"action":action,"content":{"answer":"Recovery matters most."}}}})).await;
+        assert_eq!(replay["result"]["resultType"], "complete", "{replay}");
+    }
     let completed = wait_status(&client, &url, &task, "completed").await;
     let report = completed["result"]["structuredContent"]["report"]
         .as_str()
@@ -231,6 +245,11 @@ async fn native_tasks_survive_reconnect_restart_and_support_input_revision_and_c
     assert!(
         report.contains("[S1]") || report.contains("[^S1]"),
         "{report}"
+    );
+    let _ = rpc(&client, &url, "tasks/cancel", json!({"taskId":task})).await;
+    assert_eq!(
+        wait_status(&client, &url, &task, "completed").await["result"],
+        completed["result"]
     );
     let revision = rpc(
         &client,
