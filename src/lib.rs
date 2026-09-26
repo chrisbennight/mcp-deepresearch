@@ -5,3 +5,7 @@ pub mod runtime;
 pub mod workspace;
 
 pub mod sources;
+
+pub mod lifecycle;
+
+pub mod mcp;

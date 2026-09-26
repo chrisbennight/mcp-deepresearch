@@ -4,8 +4,10 @@ A research service for people and agents using MCP clients. The target is useful
 cited answers developed through search, reading, comparison, and focused follow-up.
 
 This is an early implementation. A fixture-backed controller can investigate, write,
-and review a cited answer without credentials. A configured Codex adapter is available for live assignments; the MCP/Restate
-service and integrated live verification are still being implemented. Progress is tracked in the
+and review a cited answer without credentials. The MCP service uses Restate for durable
+execution, clarification, cancellation, and revision. A configured Codex adapter is
+available for live assignments; integrated live verification is still pending.
+See the [service guide](docs/service.md). Progress is tracked in the
 [implementation epic](https://github.com/chrisbennight/mcp-deepresearch/issues/1).
 
 ## Build

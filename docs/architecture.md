@@ -29,11 +29,11 @@ public project. Live execution will require authenticated ingress and worker iso
 ## Dependency selection
 
 The official [Rust MCP SDK](https://github.com/modelcontextprotocol/rust-sdk) provides
-current protocol support. Version 3.0.0 exists on crates.io and declares Rust 1.88;
+current protocol support. The application uses version 3.4.1;
 protocol conformance must still be checked at the wire boundary during integration.
 The official [Restate Rust SDK](https://github.com/restatedev/sdk-rust) version 0.12.1
 exists on crates.io and declares Rust 1.90. Its generated ingress clients require
-Restate 1.7 or newer. Neither SDK is added to the bootstrap executable before use.
+Restate 1.7 or newer. Both SDKs are used by the service.
 
 Current protocol references:
 
@@ -58,10 +58,11 @@ cannot establish that an excerpt actually supports a claim; substantive review r
 agent and human work. Context assembly selects relevant excerpts within a character
 budget. Unknown tool usage remains unknown rather than being reported as zero usage.
 
-Local snapshots are for standalone use; Restate will own durable workflow state.
+Local snapshots are for standalone use; Restate owns durable service workflow state.
 The snapshot store assumes one parent writer per workspace. Operators must protect
 the workspace directory as confidential data. No immutable history or claim database
-is maintained. Native Tasks and client-facing file uploads/report delivery remain unimplemented.
+is maintained. Native Tasks project workflow progress, clarification, cancellation, and results.
+Client-facing file uploads/report delivery remain unimplemented.
 The Codex adapter executes live assignments through the host-managed source adapter;
 source file downloads and bounded material reads have local MCP integration coverage.
 Integrated live validation is still pending.
@@ -78,8 +79,8 @@ The original elapsed-time allowance continues during a wait.
 
 The standalone driver uses a deterministic fixture runtime and handles cancellation,
 failure, and partial output. The Codex runtime enforces its supplied deadline and
-reports cancellation only after its external worker has stopped. Restate integration
-will persist the same controller between assignments; the standalone snapshot is not
+reports cancellation only after its external worker has stopped. Restate
+persists the same controller between assignments; the standalone snapshot is not
 an execution queue and does not resume a running external process.
 
 Fixture tests establish orchestration behavior, including strategy transitions and
@@ -91,3 +92,6 @@ Assignments carry the complete user objective, context, accepted clarifications 
 source constraints separately from selected research evidence. User context and
 clarifications share a bounded input allowance; an oversized addition is refused
 rather than silently discarded. Evidence selection must not erase the user's brief.
+
+See the [service guide](service.md) for the supported single-host deployment,
+retention, recovery limits, protocol contract, and isolated integration walkthrough.

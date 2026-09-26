@@ -47,6 +47,7 @@ fn failure(message: &str) -> RuntimeError {
 
 #[derive(Clone)]
 pub struct SourceConfig {
+    pub trace_context: crate::research::TraceContext,
     pub endpoint: String,
     pub token: Option<String>,
     pub tools: Vec<String>,
@@ -65,6 +66,7 @@ struct SourceAccess {
     cancel: CancellationToken,
     directory: PathBuf,
     materials: Arc<Mutex<HashMap<String, Material>>>,
+    trace_context: crate::research::TraceContext,
 }
 
 #[derive(Clone)]
@@ -176,6 +178,7 @@ impl AssignmentSources {
             cancel: stop.clone(),
             directory,
             materials: Arc::new(Mutex::new(HashMap::new())),
+            trace_context: config.trace_context,
         };
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
@@ -309,6 +312,12 @@ impl SourceAccess {
             "io.modelcontextprotocol/clientCapabilities".into(),
             json!({"files":{"download":true,"transports":["https"]}}),
         );
+        if let Some(value) = &self.trace_context.traceparent {
+            meta.set_traceparent(value);
+        }
+        if let Some(value) = &self.trace_context.tracestate {
+            meta.set_tracestate(value);
+        }
         let response = self
             .upstream
             .peer()
@@ -455,13 +464,15 @@ impl SourceAccess {
                     "source material is not readable UTF-8 text; use a configured extraction tool",
                 )
             })?;
+        let downloaded_references = serde_json::from_str::<Value>(&text)
+            .is_ok_and(|value| contains_file_reference(&value, None));
         let text = if context.is_empty() {
             text
         } else {
             format!("{context}\n\n{text}")
         };
         let mut selected = excerpt(&text, id, offset);
-        if material.nested_files {
+        if material.nested_files || downloaded_references {
             selected["delivery_limitations"] = json!([
                 "Nested file references were not downloaded. Only inline text and metadata were read."
             ]);

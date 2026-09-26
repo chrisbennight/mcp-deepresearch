@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Controller {
+    #[serde(default)]
+    pub trace_context: TraceContext,
     pub workspace: Workspace,
     pub kind: AssignmentKind,
     pub focus: String,
@@ -15,6 +17,7 @@ pub struct Controller {
 impl Controller {
     pub fn new(workspace: Workspace, now: u64) -> Self {
         Self {
+            trace_context: TraceContext::default(),
             focus: workspace.request.objective.clone(),
             strategy: workspace.request.strategy,
             workspace,
@@ -58,6 +61,7 @@ impl Controller {
             self.focus = "Use available evidence to produce the best partial answer; disclose unfinished research.".into();
         }
         Some(Assignment {
+            trace_context: self.trace_context.clone(),
             research_id: self.workspace.id,
             number: self.workspace.assignments_completed + 1,
             kind: self.kind,

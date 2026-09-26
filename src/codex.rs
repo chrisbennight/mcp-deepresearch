@@ -15,7 +15,10 @@ use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     process::Stdio,
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Duration,
 };
 use tokio::{
@@ -51,6 +54,7 @@ pub struct CodexRuntime {
     config: Arc<CodexConfig>,
     jobs: Arc<Mutex<HashMap<String, Arc<Job>>>>,
     slots: Arc<Semaphore>,
+    stopping: Arc<AtomicBool>,
 }
 
 impl CodexRuntime {
@@ -76,6 +80,7 @@ impl CodexRuntime {
         }
         Ok(Self {
             slots: Arc::new(Semaphore::new(config.max_workers)),
+            stopping: Arc::new(AtomicBool::new(false)),
             config: Arc::new(config),
             jobs: Arc::new(Mutex::new(HashMap::new())),
         })
@@ -93,6 +98,7 @@ impl CodexRuntime {
             auth_home: PathBuf::from(required("DEEPRESEARCH_CODEX_HOME")?),
             work_root,
             sources: Some(crate::sources::SourceConfig {
+                trace_context: TraceContext::default(),
                 endpoint: required("DEEPRESEARCH_GATEWAY_URL")?,
                 token: std::env::var("DEEPRESEARCH_SOURCE_TOKEN").ok(),
                 tools: required("DEEPRESEARCH_SOURCE_TOOLS")?
@@ -159,11 +165,86 @@ impl CodexRuntime {
         read_snapshot(&self.directory(&key))
     }
 
-    async fn start_or_attach(&self, assignment: Assignment) -> Result<Arc<Job>, RuntimeError> {
+    /// Stop an active assignment, or persist cancellation before a queued launch.
+    /// The same lock guards launch and cancellation, so a late delivery cannot start
+    /// model work after the owning workflow has acknowledged cancellation.
+    pub async fn stop_if_started(&self, id: ResearchId, number: u32) -> Result<(), RuntimeError> {
+        let key = Self::key(id, number);
+        let jobs = self.jobs.lock().await;
+        let job = jobs.get(&key).cloned();
+        let snapshot = if job.is_none() {
+            let dir = self.directory(&key);
+            if dir.join("worker.json").exists() {
+                Some(read_snapshot(&dir)?)
+            } else {
+                let snapshot = WorkerSnapshot {
+                    session_id: None,
+                    tool_calls: 0,
+                    outcome: Some(Err(RuntimeError::Cancelled)),
+                };
+                write_snapshot(&dir, &snapshot)?;
+                Some(snapshot)
+            }
+        } else {
+            None
+        };
+        drop(jobs);
+        if let Some(job) = job {
+            job.cancel.cancel();
+            match wait_for_job(&job, CancellationToken::new()).await {
+                Ok(_) | Err(RuntimeError::Cancelled) | Err(RuntimeError::TimedOut) => Ok(()),
+                Err(error) => Err(error),
+            }
+        } else {
+            match snapshot.expect("inactive assignment snapshot").outcome {
+                Some(Ok(_))
+                | Some(Err(RuntimeError::Cancelled))
+                | Some(Err(RuntimeError::TimedOut)) => Ok(()),
+                Some(Err(error)) => Err(error),
+                None => Err(RuntimeError::Failed(
+                    "worker termination remains unconfirmed".into(),
+                )),
+            }
+        }
+    }
+
+    pub async fn shutdown(&self) -> Result<(), RuntimeError> {
+        let jobs = self.jobs.lock().await;
+        self.stopping.store(true, Ordering::SeqCst);
+        let active: Vec<_> = jobs.values().cloned().collect();
+        for job in &active {
+            job.cancel.cancel();
+        }
+        drop(jobs);
+        for job in active {
+            match wait_for_job(&job, CancellationToken::new()).await {
+                Ok(_)
+                | Err(RuntimeError::Cancelled)
+                | Err(RuntimeError::TimedOut)
+                | Err(RuntimeError::Interrupted) => (),
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(())
+    }
+
+    async fn start_or_attach(
+        &self,
+        assignment: Assignment,
+        cancel: CancellationToken,
+    ) -> Result<Arc<Job>, RuntimeError> {
         let key = Self::key(assignment.research_id, assignment.number);
         let mut jobs = self.jobs.lock().await;
         if let Some(job) = jobs.get(&key) {
             return Ok(job.clone());
+        }
+        if self.stopping.load(Ordering::SeqCst) {
+            return Err(RuntimeError::Failed(
+                "worker service is shutting down".into(),
+            ));
+        }
+        if cancel.is_cancelled() {
+            return Err(RuntimeError::Cancelled);
         }
         let dir = self.directory(&key);
         let snapshot = if dir.join("worker.json").exists() {
@@ -179,7 +260,7 @@ impl CodexRuntime {
         let (sender, progress) = watch::channel(snapshot);
         let job = Arc::new(Job {
             progress,
-            cancel: CancellationToken::new(),
+            cancel: cancel.child_token(),
         });
         if !finished {
             jobs.insert(key.clone(), job.clone());
@@ -187,9 +268,17 @@ impl CodexRuntime {
             let slots = self.slots.clone();
             let cancel = job.cancel.clone();
             let jobs = self.jobs.clone();
+            let stopping = self.stopping.clone();
             tokio::spawn(async move {
                 let outcome =
                     run_process(config, dir.clone(), assignment, cancel, slots, &sender).await;
+                let outcome = if stopping.load(Ordering::SeqCst)
+                    && matches!(outcome, Err(RuntimeError::Cancelled))
+                {
+                    Err(RuntimeError::Interrupted)
+                } else {
+                    outcome
+                };
                 let mut snapshot = sender.borrow().clone();
                 snapshot.outcome = Some(outcome);
                 if let Err(error) = write_snapshot(&dir, &snapshot) {
@@ -212,7 +301,7 @@ impl AgentRuntime for CodexRuntime {
         if cancel.is_cancelled() {
             return Err(RuntimeError::Cancelled);
         }
-        let job = self.start_or_attach(assignment).await?;
+        let job = self.start_or_attach(assignment, cancel.clone()).await?;
         wait_for_job(&job, cancel).await
     }
 }
@@ -351,6 +440,8 @@ async fn run_process(
     let output_path = dir.join("answer.json");
     let sources = if assignment.kind == AssignmentKind::Investigate {
         if let Some(source_config) = &config.sources {
+            let mut source_config = source_config.clone();
+            source_config.trace_context = assignment.trace_context.clone();
             Some(tokio::select! {
                 result = crate::sources::AssignmentSources::start(source_config.clone(), assignment.remaining_tool_calls, cancel.clone(), dir.join("sources")) => result?,
                 _ = tokio::time::sleep_until(deadline) => return Err(RuntimeError::TimedOut),

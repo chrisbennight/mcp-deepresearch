@@ -178,8 +178,16 @@ pub enum AssignmentKind {
     Review,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
+pub struct TraceContext {
+    pub traceparent: Option<String>,
+    pub tracestate: Option<String>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct Assignment {
+    #[serde(default)]
+    pub trace_context: TraceContext,
     pub research_id: ResearchId,
     pub number: u32,
     pub kind: AssignmentKind,
