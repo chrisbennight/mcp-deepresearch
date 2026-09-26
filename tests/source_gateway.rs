@@ -25,6 +25,7 @@ const PAPER: &str = "https://example.org/paper\nActual retrieved text.";
 struct Gateway {
     origin: String,
     calls: Arc<AtomicU32>,
+    discovery: Option<Arc<tokio::sync::Notify>>,
 }
 impl ServerHandler for Gateway {
     fn get_info(&self) -> ServerConfig {
@@ -36,6 +37,10 @@ impl ServerHandler for Gateway {
         _: Option<PaginatedRequestParams>,
         _: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
+        if let Some(started) = &self.discovery {
+            started.notify_one();
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        }
         let tools = ["search", "read", "admin"].map(|name| serde_json::from_value(json!({"name":name,"inputSchema":{"type":"object"},"annotations":{"readOnlyHint":name!="admin","destructiveHint":false,"idempotentHint":true,"openWorldHint":true}})).unwrap());
         Ok(ListToolsResult::with_all_items(tools.into()))
     }
@@ -53,6 +58,16 @@ impl ServerHandler for Gateway {
             true
         );
         let value = match params.name.as_ref() {
+            "search"
+                if params
+                    .arguments
+                    .as_ref()
+                    .and_then(|a| a.get("oversized"))
+                    .and_then(serde_json::Value::as_bool)
+                    == Some(true) =>
+            {
+                json!({"text":"x".repeat(16*1024*1024+1)})
+            }
             "search" => {
                 json!({"results":[{"url":"https://example.org/paper","snippet":"Search lead only"}]})
             }
@@ -83,6 +98,7 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
     let gateway = Gateway {
         origin: origin.clone(),
         calls: calls.clone(),
+        discovery: None,
     };
     let stop = CancellationToken::new();
     let service = StreamableHttpService::new(
@@ -122,7 +138,7 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
             tools: vec!["search".into(), "read".into()],
             file_origins: vec![],
         },
-        3,
+        4,
         stop.clone(),
         directory.clone(),
     )
@@ -189,14 +205,86 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
     assert!(text.contains("Actual retrieved text"));
     assert!(!text.contains("host-only"));
     assert_eq!(downloads.load(Ordering::SeqCst), 2);
+    let oversized = client
+        .call_tool(
+            CallToolRequestParams::new("search")
+                .with_arguments(json!({"oversized":true}).as_object().unwrap().clone()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(oversized.is_error, Some(true));
+    assert!(
+        oversized.structured_content.unwrap()["error"]
+            .as_str()
+            .unwrap()
+            .contains("ingestion limit")
+    );
     let exhausted = client
         .call_tool(CallToolRequestParams::new("search"))
         .await
         .unwrap();
     assert_eq!(exhausted.is_error, Some(true));
-    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_eq!(calls.load(Ordering::SeqCst), 3);
     client.cancel().await.unwrap();
     drop(source);
+    stop.cancel();
+    server.abort();
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[tokio::test]
+async fn cancelling_stalled_tool_discovery_returns_without_waiting_for_timeout() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    let discovery = Arc::new(tokio::sync::Notify::new());
+    let gateway = Gateway {
+        origin: origin.clone(),
+        calls: Arc::new(AtomicU32::new(0)),
+        discovery: Some(discovery.clone()),
+    };
+    let stop = CancellationToken::new();
+    let service = StreamableHttpService::new(
+        move || Ok(gateway.clone()),
+        Arc::new(LocalSessionManager::default()),
+        StreamableHttpServerConfig::default()
+            .with_legacy_session_mode(false)
+            .with_json_response(true)
+            .with_cancellation_token(stop.clone()),
+    );
+    let server = tokio::spawn(
+        axum::serve(listener, Router::new().nest_service("/mcp", service)).into_future(),
+    );
+    let directory =
+        std::env::temp_dir().join(format!("research-discovery-test-{}", uuid::Uuid::new_v4()));
+    let cancel = stop.child_token();
+    let start_cancel = cancel.clone();
+    let root = directory.clone();
+    let starting = tokio::spawn(async move {
+        AssignmentSources::start(
+            SourceConfig {
+                endpoint: format!("{origin}/mcp"),
+                token: None,
+                tools: vec!["search".into()],
+                file_origins: vec![],
+            },
+            1,
+            start_cancel,
+            root,
+        )
+        .await
+    });
+    tokio::time::timeout(std::time::Duration::from_secs(3), discovery.notified())
+        .await
+        .unwrap();
+    cancel.cancel();
+    let outcome = tokio::time::timeout(std::time::Duration::from_secs(1), starting)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(
+        outcome,
+        Err(mcp_deepresearch::runtime::RuntimeError::Cancelled)
+    ));
     stop.cancel();
     server.abort();
     std::fs::remove_dir_all(directory).unwrap();

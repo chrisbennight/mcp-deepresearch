@@ -135,10 +135,12 @@ impl AssignmentSources {
             _ = cancel.cancelled() => return Err(RuntimeError::Cancelled),
             result = tokio::time::timeout(CALL_TIMEOUT, connect) => result.map_err(|_| failure("source discovery timed out"))?.map_err(|_| failure("source discovery failed: MCP 2026-07-28 is required"))?,
         };
-        let available = tokio::time::timeout(CALL_TIMEOUT, upstream.list_all_tools())
-            .await
-            .map_err(|_| failure("source tool discovery timed out"))?
-            .map_err(|_| failure("source tool discovery failed"))?;
+        let available = tokio::select! {
+            _ = cancel.cancelled() => return Err(RuntimeError::Cancelled),
+            result = tokio::time::timeout(CALL_TIMEOUT, upstream.list_all_tools()) => result
+                .map_err(|_| failure("source tool discovery timed out"))?
+                .map_err(|_| failure("source tool discovery failed"))?,
+        };
         let mut tools = Vec::new();
         for name in &config.tools {
             let mut tool = available
@@ -382,6 +384,9 @@ impl SourceAccess {
                 .collect::<Vec<_>>()
                 .join("\n")
         };
+        if text.len() > MAX_FILE_BYTES {
+            return Err(failure("source material exceeds the text ingestion limit"));
+        }
         if text.is_empty() {
             return Err(failure("source tool returned no readable text"));
         }
