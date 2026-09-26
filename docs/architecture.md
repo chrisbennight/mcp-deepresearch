@@ -62,7 +62,7 @@ Local snapshots are for standalone use; Restate owns durable service workflow st
 The snapshot store assumes one parent writer per workspace. Operators must protect
 the workspace directory as confidential data. No immutable history or claim database
 is maintained. Native Tasks project workflow progress, clarification, cancellation, and results.
-Client-facing file uploads/report delivery remain unimplemented.
+Native text uploads and complete Markdown report downloads use an isolated file adapter.
 The Codex adapter executes live assignments through the host-managed source adapter;
 source file downloads and bounded material reads have local MCP integration coverage.
 Integrated live validation is still pending.

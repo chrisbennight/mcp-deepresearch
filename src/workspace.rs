@@ -9,6 +9,8 @@ use std::{
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Workspace {
+    #[serde(default)]
+    pub attachments: Vec<Attachment>,
     pub id: ResearchId,
     pub owner: String,
     pub request: ResearchRequest,
@@ -27,6 +29,7 @@ impl Workspace {
     pub fn new(owner: String, request: ResearchRequest) -> Result<Self, ResearchError> {
         request.validate()?;
         Ok(Self {
+            attachments: Vec::new(),
             id: ResearchId::default(),
             owner,
             request,
@@ -58,6 +61,7 @@ impl Workspace {
             ));
         }
         let mut revision = Self::new(principal.to_owned(), request)?;
+        revision.attachments = self.attachments.clone();
         revision.sources = self.sources.clone();
         for source in revision.sources.values_mut() {
             source.needs_refresh = true;

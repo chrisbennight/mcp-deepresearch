@@ -61,6 +61,7 @@ impl Controller {
             self.focus = "Use available evidence to produce the best partial answer; disclose unfinished research.".into();
         }
         Some(Assignment {
+            attachments: self.workspace.attachments.clone(),
             trace_context: self.trace_context.clone(),
             research_id: self.workspace.id,
             number: self.workspace.assignments_completed + 1,

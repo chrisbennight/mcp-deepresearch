@@ -116,9 +116,9 @@ and deadline exhaustion. Ordinary `cargo test` explicitly skips this opt-in test
 The CI workflow runs it separately.
 
 This validates lifecycle and protocol behavior, not model research quality or live
-provider compatibility. Client-facing attachment ingestion and native report file
-delivery are separate work; reports currently return inline. Do not supply request
-attachments until that implementation is available.
+provider compatibility. Native text attachment ingestion and complete Markdown report delivery use the
+[file adapter](files.md), with streamed bytes, verified ownership, and separate
+transfer-ticket and research-material lifetimes.
 
 ## References
 

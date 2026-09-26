@@ -47,6 +47,7 @@ fn failure(message: &str) -> RuntimeError {
 
 #[derive(Clone)]
 pub struct SourceConfig {
+    pub local_materials: Vec<(String, PathBuf)>,
     pub trace_context: crate::research::TraceContext,
     pub endpoint: String,
     pub token: Option<String>,
@@ -177,7 +178,22 @@ impl AssignmentSources {
             remaining: Arc::new(AtomicU32::new(allowance)),
             cancel: stop.clone(),
             directory,
-            materials: Arc::new(Mutex::new(HashMap::new())),
+            materials: Arc::new(Mutex::new(
+                config
+                    .local_materials
+                    .into_iter()
+                    .map(|(id, path)| {
+                        (
+                            id,
+                            Material {
+                                path,
+                                remote: None,
+                                nested_files: false,
+                            },
+                        )
+                    })
+                    .collect(),
+            )),
             trace_context: config.trace_context,
         };
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -376,6 +392,21 @@ impl SourceAccess {
         {
             if !parts.iter().any(|part| part == text) {
                 parts.push(text.to_owned());
+            }
+        }
+        for resource in result
+            .get("content")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|content| content.get("resource"))
+        {
+            if let Some(text) = resource.get("text").and_then(Value::as_str) {
+                let uri = resource
+                    .get("uri")
+                    .and_then(Value::as_str)
+                    .unwrap_or("embedded text resource");
+                parts.push(format!("{uri}\n{text}"));
             }
         }
         let text = parts.join("\n\n");

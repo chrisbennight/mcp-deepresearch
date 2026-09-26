@@ -1,6 +1,9 @@
 //! MCP is a projection of Restate workflow state, not a second scheduler.
 use crate::{
-    lifecycle::{Owner, ResearchIngressClient, ResearchState, Submission, UserInput, workflow_key},
+    lifecycle::{
+        Clarification, Owner, ResearchIngressClient, ResearchState, Submission, UserInput,
+        workflow_key,
+    },
     research::{ResearchId, ResearchRequest, Status},
     runtime,
 };
@@ -22,13 +25,15 @@ use rmcp::{
     },
 };
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{sync::Arc, time::Duration};
 use tokio_util::sync::CancellationToken;
 
 #[derive(Clone)]
 pub struct ServiceConfig {
+    pub file_root: std::path::PathBuf,
+    pub file_origin: String,
     pub restate_ingress: String,
     pub principal: String,
     pub bearer_current: String,
@@ -37,6 +42,7 @@ pub struct ServiceConfig {
 }
 #[derive(Clone)]
 struct ResearchMcp {
+    files: crate::files::FileStore,
     ingress: ReqwestClient,
     principal: String,
 }
@@ -54,6 +60,24 @@ struct SubmitInput {
 #[serde(deny_unknown_fields)]
 struct ResearchInput {
     research_id: ResearchId,
+}
+
+#[derive(Serialize, JsonSchema)]
+struct ReportOutput {
+    research_id: ResearchId,
+    status: Status,
+    report: String,
+    report_truncated: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    file: Option<crate::files::FileValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    delivery_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    delivery_error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    delivery_limitations: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    retry_operation: Option<bool>,
 }
 
 fn trust(untrusted: bool) -> MetaObject {
@@ -94,18 +118,60 @@ fn timestamp(seconds: u64) -> String {
 }
 
 impl ResearchMcp {
+    async fn report(&self, workspace: &crate::workspace::Workspace, files: bool) -> CallToolResult {
+        let report = workspace.report();
+        let summary: String = report.chars().take(32000).collect();
+        let mut value = ReportOutput {
+            research_id: workspace.id,
+            status: workspace.status.clone(),
+            report_truncated: summary.len() < report.len(),
+            report: summary,
+            file: None,
+            delivery_status: None,
+            delivery_error: None,
+            delivery_limitations: None,
+            retry_operation: None,
+        };
+        if workspace.status.terminal() && files {
+            match self.files.publish_report(workspace.id, &report).await {
+                Ok(file) => {
+                    value.file = Some(file);
+                    value.delivery_status = Some("available".into());
+                }
+                Err(reason) => {
+                    value.delivery_status = Some("unavailable".into());
+                    value.delivery_error = Some(reason.into());
+                    value.retry_operation = Some(false);
+                }
+            }
+        } else if value.report_truncated {
+            value.delivery_limitations = Some(
+                "Enable native file download capability to retrieve the full terminal report."
+                    .into(),
+            );
+        }
+        tool_result(serde_json::to_value(value).expect("report serializes"))
+    }
+
     async fn state(&self, id: ResearchId) -> Result<ResearchState, ErrorData> {
-        ResearchIngressClient::from_client(self.ingress.clone(), workflow_key(&self.principal, id))
-            .status(Json(Owner {
-                principal: self.principal.clone(),
-            }))
-            .call()
-            .await
-            .map_err(|_| unavailable())?
-            .into_body()
-            .map_err(|_| unavailable())?
-            .into_inner()
+        self.existing(id)
+            .await?
             .ok_or_else(|| error("research is not available or has expired"))
+    }
+    async fn existing(&self, id: ResearchId) -> Result<Option<ResearchState>, ErrorData> {
+        Ok(ResearchIngressClient::from_client(
+            self.ingress.clone(),
+            workflow_key(&self.principal, id),
+        )
+        .status(Json(Owner {
+            principal: self.principal.clone(),
+        }))
+        .call()
+        .await
+        .map_err(|_| unavailable())?
+        .into_body()
+        .map_err(|_| unavailable())?
+        .into_inner())
     }
     async fn cancel(&self, id: ResearchId) -> Result<(), ErrorData> {
         ResearchIngressClient::from_client(self.ingress.clone(), workflow_key(&self.principal, id))
@@ -137,7 +203,7 @@ impl ResearchMcp {
         .with_poll_interval_ms(1000)
         .with_status_message(state.stage.clone())
     }
-    async fn detailed(&self, id: ResearchId) -> Result<GetTaskResult, ErrorData> {
+    async fn detailed(&self, id: ResearchId, files: bool) -> Result<GetTaskResult, ErrorData> {
         let state = self.state(id).await?;
         let workspace = &state.controller.workspace;
         let payload=match &workspace.status {
@@ -149,8 +215,8 @@ impl ResearchMcp {
                 let mut requests=InputRequests::new();requests.insert(state.controller.workspace.assignments_completed.to_string(),InputRequest::Elicitation(input));
                 TaskPayload::InputRequired{input_requests:requests}
             },
-            Status::Failed{reason}=>TaskPayload::Failed{error:json!({"code":-32603,"message":reason,"data":{"partial_report":workspace.report(),"_meta":trust(true)}}).as_object().unwrap().clone()},
-            Status::Completed|Status::Exhausted{..}=>TaskPayload::Completed{result:serde_json::to_value(tool_result(json!({"research_id":id,"status":workspace.status,"report":workspace.report()}))).expect("tool result serializes").as_object().unwrap().clone()},
+            Status::Failed{reason}=>TaskPayload::Failed{error:json!({"code":-32603,"message":reason,"data":{"partial_result":self.report(workspace,files).await,"_meta":trust(true)}}).as_object().unwrap().clone()},
+            Status::Completed|Status::Exhausted{..}=>TaskPayload::Completed{result:serde_json::to_value(self.report(workspace,files).await).expect("tool result serializes").as_object().unwrap().clone()},
         };
         let mut result = GetTaskResult::new(DetailedTask::new(Self::task(&state), payload));
         result.meta = Some(trust(true));
@@ -169,8 +235,8 @@ impl ServerHandler for ResearchMcp {
         _: Option<PaginatedRequestParams>,
         _: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
-        let mut tools = Vec::new();
-        for (name, description, read_only, schema) in [
+        let mut tools: Vec<Tool> = Vec::new();
+        for (name, description, read_only, mut schema) in [
             (
                 "research_submit",
                 "Investigate a question across sources and return a durable task. Optional previous starts a revision of completed work.",
@@ -190,7 +256,22 @@ impl ServerHandler for ResearchMcp {
                 serde_json::to_value(schemars::schema_for!(ResearchInput)).unwrap(),
             ),
         ] {
+            if name == "research_submit" {
+                schema["$defs"]["ResearchRequest"]["properties"]["attachments"]["items"]["x-mcp-file"] =
+                    json!({"transferModes":["upload"],"maxSize":crate::files::MAX_BYTES});
+            }
             tools.push(serde_json::from_value(json!({"name":name,"description":description,"inputSchema":schema,"annotations":{"readOnlyHint":read_only,"destructiveHint":false,"idempotentHint":true,"openWorldHint":!read_only},"_meta":{"io.modelcontextprotocol/action-metadata":{"inputMetadata":{"destination":if read_only {"internal"} else {"external"},"sensitivity":"sensitive"},"returnMetadata":{"source":"first-party","sensitivity":"sensitive"},"outcome":if read_only {"benign"} else {"research execution"},"requiresReview":false}}})).expect("static tool metadata"));
+        }
+        for tool in &mut tools {
+            if tool.name != "research_status" {
+                tool.output_schema = Some(Arc::new(
+                    serde_json::to_value(schemars::schema_for!(ReportOutput))
+                        .expect("schema")
+                        .as_object()
+                        .expect("object schema")
+                        .clone(),
+                ));
+            }
         }
         Ok(ListToolsResult::with_all_items(tools)
             .with_ttl_ms(30000)
@@ -218,6 +299,11 @@ impl ServerHandler for ResearchMcp {
                     .request
                     .validate()
                     .map_err(|e| error(&e.to_string()))?;
+                if let Some(state) = self.existing(input.request_id).await? {
+                    return Ok(CreateTaskResult::new(Self::task(&state))
+                        .with_meta(trust(false))
+                        .into());
+                }
                 let previous = if let Some(id) = input.previous {
                     let previous = self.state(id).await?.controller.workspace;
                     previous
@@ -230,12 +316,22 @@ impl ServerHandler for ResearchMcp {
                 } else {
                     None
                 };
+                let attachments = self
+                    .files
+                    .admit_attachments(
+                        input.request_id,
+                        &input.request.attachments,
+                        previous.as_ref(),
+                    )
+                    .await
+                    .map_err(error)?;
                 let now = runtime::unix_seconds();
                 let workflow = ResearchIngressClient::from_client(
                     self.ingress.clone(),
                     workflow_key(&self.principal, input.request_id),
                 );
                 let mut request = workflow.run(Json(Submission {
+                    attachments,
                     trace_context: crate::research::TraceContext {
                         traceparent: context.meta.get_traceparent().map(str::to_owned),
                         tracestate: context.meta.get_tracestate().map(str::to_owned),
@@ -286,11 +382,16 @@ impl ServerHandler for ResearchMcp {
                     .map_err(|_| error("invalid research identifier"))?;
                 let state = self.state(input.research_id).await?;
                 let workspace = &state.controller.workspace;
-                let value = if params.name == "research_report" {
-                    json!({"research_id":workspace.id,"status":workspace.status,"report":workspace.report()})
-                } else {
-                    json!({"research_id":workspace.id,"status":workspace.status,"stage":state.stage,"assignments_completed":workspace.assignments_completed,"sources":workspace.sources.len(),"uncertainties":workspace.uncertainties})
-                };
+                if params.name == "research_report" {
+                    return Ok(self
+                        .report(
+                            workspace,
+                            crate::files::client_supports(&context.meta, "download"),
+                        )
+                        .await
+                        .into());
+                }
+                let value = json!({"research_id":workspace.id,"status":workspace.status,"stage":state.stage,"assignments_completed":workspace.assignments_completed,"sources":workspace.sources.len(),"uncertainties":workspace.uncertainties});
                 Ok(tool_result(value).into())
             }
             _ => Err(error("unknown research tool")),
@@ -299,9 +400,56 @@ impl ServerHandler for ResearchMcp {
     async fn get_task(
         &self,
         request: GetTaskParams,
-        _: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<GetTaskResult, ErrorData> {
-        self.detailed(research_id(&request.task_id)?).await
+        self.detailed(
+            research_id(&request.task_id)?,
+            crate::files::client_supports(&context.meta, "download"),
+        )
+        .await
+    }
+    async fn on_custom_request(
+        &self,
+        request: CustomRequest,
+        context: RequestContext<RoleServer>,
+    ) -> Result<CustomResult, ErrorData> {
+        let params = request.params.unwrap_or_else(|| json!({}));
+        let value = match request.method.as_ref() {
+            "files/authorizeUpload" => {
+                if !crate::files::client_supports(&context.meta, "upload") {
+                    return Err(error(
+                        "declare request-local files.upload and https transport capability",
+                    ));
+                }
+                self.files.authorize_upload(params).await.map_err(error)?
+            }
+            "files/authorizeDownload" => {
+                if !crate::files::client_supports(&context.meta, "download") {
+                    return Err(error(
+                        "declare request-local files.download and https transport capability",
+                    ));
+                }
+                self.files
+                    .authorize_download(
+                        params
+                            .get("uri")
+                            .and_then(Value::as_str)
+                            .ok_or_else(|| error("file uri is required"))?,
+                    )
+                    .await
+                    .map_err(error)?
+            }
+            _ => {
+                return Err(ErrorData::new(
+                    ErrorCode::METHOD_NOT_FOUND,
+                    "unknown method",
+                    Some(json!({"_meta":trust(false)})),
+                ));
+            }
+        };
+        let mut value = value;
+        value["_meta"] = serde_json::to_value(trust(false)).expect("metadata serializes");
+        Ok(CustomResult::new(value))
     }
     async fn cancel_task(
         &self,
@@ -316,26 +464,28 @@ impl ServerHandler for ResearchMcp {
         _: RequestContext<RoleServer>,
     ) -> Result<(), ErrorData> {
         let id = research_id(&request.task_id)?;
-        if request.input_responses.len() != 1 {
-            return Err(error(
-                "provide the single outstanding clarification response",
-            ));
+        let state = self.state(id).await?;
+        if !matches!(
+            state.controller.workspace.status,
+            Status::InputRequired { .. }
+        ) {
+            return Ok(());
         }
-        let (question, response) = request.input_responses.into_iter().next().unwrap();
-        let question_id = question
-            .parse()
-            .map_err(|_| error("invalid clarification identity"))?;
-        let answer=match response.get("action").and_then(Value::as_str) {
-            Some("cancel")=>return self.cancel(id).await,
-            Some("decline")=>"The user declined clarification. Proceed with available evidence and disclose assumptions.".to_owned(),
-            Some("accept")=>response.pointer("/content/answer").and_then(Value::as_str).ok_or_else(||error("clarification answer is required"))?.to_owned(),
+        let question_id = state.controller.workspace.assignments_completed;
+        let Some(response) = request.input_responses.get(&question_id.to_string()) else {
+            return Ok(());
+        };
+        let response=match response.get("action").and_then(Value::as_str) {
+            Some("cancel")=>Clarification::Cancel,
+            Some("decline")=>Clarification::Answer("The user declined clarification. Proceed with available evidence and disclose assumptions.".to_owned()),
+            Some("accept")=>Clarification::Answer(response.pointer("/content/answer").and_then(Value::as_str).ok_or_else(||error("clarification answer is required"))?.to_owned()),
             _=>return Err(error("invalid elicitation response")),
         };
         ResearchIngressClient::from_client(self.ingress.clone(), workflow_key(&self.principal, id))
             .provide_input(Json(UserInput {
                 principal: self.principal.clone(),
                 question_id,
-                answer,
+                response,
             }))
             .call()
             .await
@@ -357,7 +507,13 @@ pub fn router(
         .timeout(Duration::from_secs(15))
         .redirect(reqwest::redirect::Policy::none())
         .build()?;
+    let files = crate::files::FileStore::new(
+        config.file_root.clone(),
+        config.file_origin.clone(),
+        config.principal.clone(),
+    )?;
     let service = ResearchMcp {
+        files: files.clone(),
         ingress: ReqwestClient::new(config.restate_ingress.parse()?, http)?,
         principal: config.principal.clone(),
     };
@@ -372,7 +528,8 @@ pub fn router(
     );
     Ok(Router::new()
         .nest_service("/mcp", transport)
-        .layer(middleware::from_fn_with_state(config, authenticate)))
+        .layer(middleware::from_fn_with_state(config, authenticate))
+        .merge(files.router()))
 }
 async fn authenticate(
     State(config): State<ServiceConfig>,

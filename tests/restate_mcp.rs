@@ -40,6 +40,10 @@ impl Application {
             .env_clear()
             .env("DEEPRESEARCH_INBOUND_TOKEN", "local-fixture-token")
             .env("DEEPRESEARCH_PRINCIPAL", "fixture-owner")
+            .env(
+                "DEEPRESEARCH_FILE_ORIGIN",
+                format!("http://127.0.0.1:{mcp}"),
+            )
             .env("DEEPRESEARCH_RESTATE_INGRESS", ingress)
             .env("DEEPRESEARCH_MCP_LISTEN", format!("127.0.0.1:{mcp}"))
             .env(
@@ -97,7 +101,7 @@ impl Drop for Application {
 }
 
 async fn rpc(client: &reqwest::Client, url: &str, method: &str, mut params: Value) -> Value {
-    params["_meta"] = json!({"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{"extensions":{"io.modelcontextprotocol/tasks":{}}}});
+    params["_meta"] = json!({"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{"files":{"upload":true,"download":true,"transports":["https"]},"extensions":{"io.modelcontextprotocol/tasks":{}}}});
     let mut request = client
         .post(url)
         .bearer_auth("local-fixture-token")
@@ -202,12 +206,57 @@ async fn native_tasks_survive_reconnect_restart_and_support_input_revision_and_c
             tool["_meta"]["io.modelcontextprotocol/action-metadata"]["requiresReview"].is_boolean()
         );
     }
+    let submit_tool = tools["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["name"] == "research_submit")
+        .unwrap();
+    assert_eq!(
+        submit_tool["inputSchema"]["$defs"]["ResearchRequest"]["properties"]["attachments"]["items"]
+            ["x-mcp-file"]["transferModes"][0],
+        "upload"
+    );
+    assert!(submit_tool["outputSchema"]["properties"]["file"].is_object());
+    let authorization = rpc(
+        &client,
+        &url,
+        "files/authorizeUpload",
+        json!({"name":"brief.md","mimeType":"text/markdown","size":43}),
+    )
+    .await;
+    let uploaded = authorization["result"]["file"]["uri"].as_str().unwrap();
+    let descriptor = &authorization["result"]["upload"];
+    let upload = client
+        .put(descriptor["url"].as_str().unwrap())
+        .header(
+            "Authorization",
+            descriptor["headers"]["Authorization"].as_str().unwrap(),
+        )
+        .body("Attachment evidence: recovery is essential.")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(upload.status(), reqwest::StatusCode::CREATED);
     let id = Uuid::new_v4();
-    let submitted = rpc(&client, &url, "tools/call", submit(id, None, 60)).await;
+    let mut request = submit(id, None, 60);
+    request["arguments"]["request"]["attachments"] = json!([uploaded]);
+    let submitted = rpc(&client, &url, "tools/call", request).await;
     assert_eq!(submitted["result"]["resultType"], "task", "{submitted}");
     let task = submitted["result"]["taskId"].as_str().unwrap().to_owned();
     let retry = rpc(&client, &url, "tools/call", submit(id, None, 60)).await;
     assert_eq!(retry["result"]["taskId"], task);
+    let detached_retry = rpc(
+        &client,
+        &url,
+        "tools/call",
+        submit(id, Some(Uuid::new_v4()), 60),
+    )
+    .await;
+    assert_eq!(
+        detached_retry["result"]["taskId"], task,
+        "an existing request must not depend on parent availability"
+    );
     let waiting = wait_status(&client, &url, &task, "input_required").await;
     application.restart();
     application.ready().await;
@@ -221,8 +270,22 @@ async fn native_tasks_survive_reconnect_restart_and_support_input_revision_and_c
         .next()
         .unwrap()
         .clone();
-    let updated=rpc(&client,&url,"tasks/update",json!({"taskId":task,"inputResponses":{question:{"action":"accept","content":{"answer":"Recovery matters most."}}}})).await;
+    let unknown = rpc(
+        &client,
+        &url,
+        "tasks/update",
+        json!({"taskId":task,"inputResponses":{"unknown":{"action":"cancel"}}}),
+    )
+    .await;
+    assert_eq!(unknown["result"]["resultType"], "complete");
+    let still_waiting = wait_status(&client, &url, &task, "input_required").await;
+    assert_eq!(still_waiting["inputRequests"], restored["inputRequests"]);
+    let updated=rpc(&client,&url,"tasks/update",json!({"taskId":task,"inputResponses":{question.clone():{"action":"accept","content":{"answer":"Recovery matters most."}}}})).await;
     assert_eq!(updated["result"]["resultType"], "complete", "{updated}");
+    for action in ["accept", "cancel"] {
+        let replay = rpc(&client,&url,"tasks/update",json!({"taskId":task,"inputResponses":{question.clone():{"action":action,"content":{"answer":"Recovery matters most."}}}})).await;
+        assert_eq!(replay["result"]["resultType"], "complete", "{replay}");
+    }
     let completed = wait_status(&client, &url, &task, "completed").await;
     let report = completed["result"]["structuredContent"]["report"]
         .as_str()
@@ -232,6 +295,72 @@ async fn native_tasks_survive_reconnect_restart_and_support_input_revision_and_c
         report.contains("[S1]") || report.contains("[^S1]"),
         "{report}"
     );
+    let _ = rpc(&client, &url, "tasks/cancel", json!({"taskId":task})).await;
+    assert_eq!(
+        wait_status(&client, &url, &task, "completed").await["result"],
+        completed["result"]
+    );
+    let report_file = completed["result"]["structuredContent"]["file"]["uri"]
+        .as_str()
+        .unwrap();
+    let first_download = rpc(
+        &client,
+        &url,
+        "files/authorizeDownload",
+        json!({"uri":report_file}),
+    )
+    .await;
+    let descriptor = &first_download["result"]["download"];
+    assert_eq!(
+        client
+            .get(descriptor["url"].as_str().unwrap())
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        reqwest::StatusCode::UNAUTHORIZED
+    );
+    application.restart();
+    application.ready().await;
+    assert_eq!(
+        client
+            .get(descriptor["url"].as_str().unwrap())
+            .header(
+                "Authorization",
+                descriptor["headers"]["Authorization"].as_str().unwrap()
+            )
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        reqwest::StatusCode::UNAUTHORIZED
+    );
+    let refreshed = rpc(
+        &client,
+        &url,
+        "files/authorizeDownload",
+        json!({"uri":report_file}),
+    )
+    .await;
+    let descriptor = &refreshed["result"]["download"];
+    let downloaded = client
+        .get(descriptor["url"].as_str().unwrap())
+        .header(
+            "Authorization",
+            descriptor["headers"]["Authorization"].as_str().unwrap(),
+        )
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert_eq!(downloaded, report);
+    let upload_path = application.directory.join("files").join("uploads");
+    std::fs::remove_dir_all(&upload_path).unwrap();
+    std::fs::create_dir(&upload_path).unwrap();
     let revision = rpc(
         &client,
         &url,
