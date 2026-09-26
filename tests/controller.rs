@@ -116,3 +116,23 @@ fn wall_clock_and_clarification_state_survive_serialization() {
         Status::Exhausted { .. }
     ));
 }
+
+#[test]
+fn accepted_clarification_reaches_next_assignment_even_when_old_context_is_full() {
+    let mut control = controller(Strategy::Comparison);
+    control.workspace.request.limits.context_chars = 2000;
+    control.workspace.request.context = "Old background. ".repeat(200);
+    control.workspace.status = Status::InputRequired {
+        question: "Which criteria matter?".into(),
+    };
+    control
+        .provide_input("Prioritize recovery over latency.")
+        .unwrap();
+    let assignment = control.assignment(runtime::unix_seconds()).unwrap();
+    assert!(
+        assignment
+            .focus
+            .contains("Prioritize recovery over latency.")
+    );
+    assert!(assignment.context.chars().count() <= 2000);
+}

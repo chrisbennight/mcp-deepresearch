@@ -132,6 +132,11 @@ impl Controller {
                 "input must contain 1–16000 characters".into(),
             ));
         }
+        if let Status::InputRequired { question } = &self.workspace.status {
+            self.focus = format!(
+                "Continue after the user answered your clarification.\nQuestion: {question}\nAnswer: {input}"
+            );
+        }
         self.workspace
             .request
             .context
