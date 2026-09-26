@@ -4,8 +4,8 @@ A research service for people and agents using MCP clients. The target is useful
 cited answers developed through search, reading, comparison, and focused follow-up.
 
 This is an early implementation. A fixture-backed controller can investigate, write,
-and review a cited answer without credentials. Live research and the MCP/Restate
-service are still being implemented. Progress is tracked in the
+and review a cited answer without credentials. A configured Codex adapter is available for live assignments; the MCP/Restate
+service and integrated live verification are still being implemented. Progress is tracked in the
 [implementation epic](https://github.com/chrisbennight/mcp-deepresearch/issues/1).
 
 ## Build
@@ -54,3 +54,10 @@ It follows proposed questions, writes from selected evidence, and permits a boun
 review follow-up. Exhaustion preserves a partial report and explains why work stopped.
 Live runtimes must enforce their assignment deadline and stop before acknowledging
 cancellation; the fixture runtime performs no external work.
+
+## Live runtime
+
+The initial supported worker platform is Linux. See [Codex runtime](docs/codex-runtime.md)
+for the opt-in live command, scoped gateway access, account setup, cancellation and
+recovery behavior. Local process tests verify execution mechanics without model calls;
+live research quality and gateway wire compatibility are separate integration checks.

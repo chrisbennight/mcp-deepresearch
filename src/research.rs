@@ -1,4 +1,5 @@
 //! Shared research concepts, independent of MCP transport and model provider.
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -14,7 +15,7 @@ pub enum ResearchError {
     Encoding(#[from] serde_json::Error),
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Strategy {
     #[default]
@@ -43,7 +44,7 @@ impl Strategy {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum OutputFormat {
     #[default]
@@ -52,7 +53,7 @@ pub enum OutputFormat {
     Table,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(default)]
 pub struct Limits {
     pub max_assignments: u32,
@@ -72,7 +73,7 @@ impl Default for Limits {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct ResearchRequest {
     pub objective: String,
     #[serde(default)]
@@ -116,7 +117,7 @@ impl ResearchRequest {
 
 /// A research execution and its writable workspace share this identifier.
 /// A revision receives a new identifier; an agent session is a separate runtime value.
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, JsonSchema, PartialEq, Eq, Hash)]
 #[serde(transparent)]
 pub struct ResearchId(pub Uuid);
 
@@ -132,7 +133,7 @@ impl std::fmt::Display for ResearchId {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum Status {
     Working,
@@ -152,7 +153,7 @@ impl Status {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct Source {
     pub id: String,
     pub url: String,
@@ -163,13 +164,13 @@ pub struct Source {
     pub needs_refresh: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct Finding {
     pub text: String,
     pub sources: Vec<String>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AssignmentKind {
     Investigate,
@@ -177,7 +178,7 @@ pub enum AssignmentKind {
     Review,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct Assignment {
     pub research_id: ResearchId,
     pub number: u32,
@@ -191,7 +192,7 @@ pub struct Assignment {
     pub remaining_tool_calls: u32,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum NextAction {
     Investigate {
@@ -205,14 +206,14 @@ pub enum NextAction {
     },
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema, Default)]
 pub struct Usage {
     pub tool_calls: Option<u32>,
     pub input_tokens: Option<u64>,
     pub output_tokens: Option<u64>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct AssignmentResult {
     #[serde(default)]
     pub sources: Vec<Source>,

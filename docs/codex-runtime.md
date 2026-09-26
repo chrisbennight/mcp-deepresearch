@@ -1,0 +1,78 @@
+# Codex runtime
+
+The live adapter runs `codex exec`, initially targeting Codex CLI 0.157.0 on Linux.
+`-p` selects a profile; it is not a noninteractive/print switch. The adapter uses
+JSON events and structured final output, with the assignment prompt on stdin.
+No paid-model API is called separately by the controller.
+
+## Run
+
+Authenticate a dedicated Codex home using the normal Codex login flow. Configure:
+
+| Setting | Purpose |
+|---|---|
+| `DEEPRESEARCH_CODEX_HOME` | Dedicated authenticated Codex home, kept outside the repository |
+| `DEEPRESEARCH_GATEWAY_URL` | Source gateway MCP endpoint |
+| `DEEPRESEARCH_SOURCE_TOOLS` | Comma-separated search/read tool allowlist, using actual gateway tool names |
+| `DEEPRESEARCH_SOURCE_TOKEN` | Separately scoped source credential injected by the operator; never an inbound caller assertion |
+| `DEEPRESEARCH_CODEX_EXECUTABLE` | Optional executable path, default `codex` |
+| `DEEPRESEARCH_MODEL` | Optional model choice, otherwise the Codex default |
+| `DEEPRESEARCH_MAX_WORKERS` | Concurrent worker processes, default `1` |
+
+Then run:
+
+```sh
+cargo run --locked -- live request.json ./workspaces
+```
+
+Use an actual question and public-source constraints in `request.json`; the supplied
+comparison example deliberately describes fixtures. The live command consumes the
+configured account's allowance. Subscription availability and quota are not guaranteed.
+Keep authenticated homes and workspaces private. Account refresh may write to the
+Codex home; do not bake credentials into an image or copy them into committed examples.
+
+The adapter ignores ordinary user configuration and rule files, disables shell tools,
+subagents and built-in web search, and supplies only configured MCP source tools during
+investigation. Writing and review use collected evidence without a gateway connection.
+Use a gateway credential restricted to source operations: never permit administrative
+operations, generic code execution, or recursive research calls in that allowlist.
+Read-only process sandboxing and gateway policy are independent controls.
+
+## Execution and recovery
+
+An assignment is identified by research ID and assignment number. A reconnect attaches
+to the in-memory worker instead of starting another process. A completed result is
+saved before callers receive it and can be retrieved after a new runtime instance.
+The session identifier is available for diagnosis; session resume is not process
+attachment and is not used as an automatic retry mechanism.
+
+After a host restart, an unfinished worker record is reported as interrupted. It is
+not silently launched again. Preserve the partial workspace and start an explicit
+revision after reconciling the failed run. There is no exactly-once claim for external
+model work. Run live workers in a container or service unit that kills the entire
+process group on service death; an abrupt host/process crash cannot be cleaned up by
+Rust destructors. Normal cancellation and deadlines kill and reap the owned process
+group before acknowledging termination.
+
+Capacity waits count against the assignment's elapsed-time allowance. Tool-call
+limits are observed from Codex events: detection can occur after a call was dispatched,
+so the gateway remains responsible for hard authoritative quotas. The worker is stopped
+when the observed allowance is exceeded. Model usage is taken from runtime events,
+not model-authored numbers; absent counts remain unavailable.
+
+The adapter does not persist raw event logs or stderr. It retains only the session
+identifier, current tool count and terminal research result. Authentication and capacity
+failures are reported without echoing raw payloads. Result transfer is a later layer;
+retrieving an already completed result must not trigger another worker.
+
+## Validation and limitations
+
+Local process fixtures exercise concurrent attachment, restart retrieval, interrupted
+execution, process-group cancellation and timeout. They use actual child processes
+but never contact Codex, a model, or a gateway. Live provider/protocol compatibility
+still requires the opt-in integrated walkthrough; these tests are not that evidence.
+
+References:
+
+- [Noninteractive Codex](https://developers.openai.com/codex/noninteractive)
+- [Codex configuration reference](https://developers.openai.com/codex/config-reference)

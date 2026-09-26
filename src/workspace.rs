@@ -1,6 +1,7 @@
 //! Mutable working material. Only the workflow parent applies assignment results.
 use crate::research::*;
 use serde::{Deserialize, Serialize};
+use std::os::unix::fs::DirBuilderExt;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -275,7 +276,10 @@ pub struct WorkspaceStore {
 
 impl WorkspaceStore {
     pub fn new(root: impl AsRef<Path>) -> Result<Self, ResearchError> {
-        std::fs::create_dir_all(root.as_ref())?;
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(root.as_ref())?;
         Ok(Self {
             root: root.as_ref().to_owned(),
         })

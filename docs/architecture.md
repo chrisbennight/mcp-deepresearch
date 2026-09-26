@@ -61,7 +61,7 @@ budget. Unknown tool usage remains unknown rather than being reported as zero us
 Local snapshots are for standalone use; Restate will own durable workflow state.
 The snapshot store assumes one parent writer per workspace. Operators must protect
 the workspace directory as confidential data. No immutable history or claim database
-is maintained. Native Tasks, file transfers, and live worker execution remain unimplemented.
+is maintained. Native Tasks and file transfers remain unimplemented. The Codex adapter now executes live assignments; integrated live validation is still pending.
 
 
 ## Controller and runtime
@@ -74,8 +74,8 @@ in the controller. Clarification waits preserve state and accept an explicit use
 The original elapsed-time allowance continues during a wait.
 
 The standalone driver uses a deterministic fixture runtime and handles cancellation,
-failure, and partial output. A live runtime must enforce its supplied deadline and
-report cancellation only after its external worker has stopped. Restate integration
+failure, and partial output. The Codex runtime enforces its supplied deadline and
+reports cancellation only after its external worker has stopped. Restate integration
 will persist the same controller between assignments; the standalone snapshot is not
 an execution queue and does not resume a running external process.
 
