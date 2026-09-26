@@ -149,11 +149,6 @@ impl Controller {
             "{}\nClarification question: {question}\nUser clarification: {input}",
             self.workspace.request.context
         );
-        if context.chars().count() > 16_000 {
-            return Err(ResearchError::Invalid(
-                "combined user context and clarifications must fit within 16000 characters".into(),
-            ));
-        }
         self.workspace.request.context = context;
         self.workspace.status = Status::Working;
         Ok(())
