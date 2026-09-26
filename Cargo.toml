@@ -26,3 +26,8 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "sync"
 tokio-util = { version = "0.7", features = ["rt"] }
 schemars = { version = "1", features = ["uuid1"] }
 nix = { version = "0.31", features = ["signal", "process"] }
+rmcp = { version = "3", features = ["client", "transport-streamable-http-client-reqwest", "transport-streamable-http-server", "reqwest"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "stream"] }
+axum = "0.8"
+sha2 = "0.10"
+base64 = "0.22"

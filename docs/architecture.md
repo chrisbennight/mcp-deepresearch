@@ -61,7 +61,10 @@ budget. Unknown tool usage remains unknown rather than being reported as zero us
 Local snapshots are for standalone use; Restate will own durable workflow state.
 The snapshot store assumes one parent writer per workspace. Operators must protect
 the workspace directory as confidential data. No immutable history or claim database
-is maintained. Native Tasks and file transfers remain unimplemented. The Codex adapter now executes live assignments; integrated live validation is still pending.
+is maintained. Native Tasks and client-facing file uploads/report delivery remain unimplemented.
+The Codex adapter executes live assignments through the host-managed source adapter;
+source file downloads and bounded material reads have local MCP integration coverage.
+Integrated live validation is still pending.
 
 
 ## Controller and runtime

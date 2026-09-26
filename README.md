@@ -61,3 +61,5 @@ The initial supported worker platform is Linux. See [Codex runtime](docs/codex-r
 for the opt-in live command, scoped gateway access, account setup, cancellation and
 recovery behavior. Local process tests verify execution mechanics without model calls;
 live research quality and gateway wire compatibility are separate integration checks.
+The [source adapter](docs/source-access.md) handles source restrictions, retained
+material, and native file delivery without exposing transfer credentials to the worker.

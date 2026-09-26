@@ -30,9 +30,7 @@ pub struct CodexConfig {
     pub executable: PathBuf,
     pub auth_home: PathBuf,
     pub work_root: PathBuf,
-    pub gateway_url: String,
-    pub source_tools: Vec<String>,
-    pub token_env: String,
+    pub sources: Option<crate::sources::SourceConfig>,
     pub model: Option<String>,
     pub max_workers: usize,
 }
@@ -57,17 +55,9 @@ pub struct CodexRuntime {
 
 impl CodexRuntime {
     pub fn new(mut config: CodexConfig) -> Result<Self, RuntimeError> {
-        if config.max_workers == 0 || config.source_tools.is_empty() {
+        if config.max_workers == 0 {
             return Err(RuntimeError::Failed(
-                "configure a positive worker limit and explicit source-tool allowlist".into(),
-            ));
-        }
-        if !(config.gateway_url.starts_with("https://")
-            || config.gateway_url.starts_with("http://"))
-            || config.gateway_url.contains('@')
-        {
-            return Err(RuntimeError::Failed(
-                "configure an HTTP gateway URL without embedded credentials".into(),
+                "configure a positive worker limit".into(),
             ));
         }
         std::fs::DirBuilder::new()
@@ -102,14 +92,23 @@ impl CodexRuntime {
                 .unwrap_or_else(|| "codex".into()),
             auth_home: PathBuf::from(required("DEEPRESEARCH_CODEX_HOME")?),
             work_root,
-            gateway_url: required("DEEPRESEARCH_GATEWAY_URL")?,
-            source_tools: required("DEEPRESEARCH_SOURCE_TOOLS")?
-                .split(',')
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-                .map(str::to_owned)
-                .collect(),
-            token_env: "DEEPRESEARCH_SOURCE_TOKEN".into(),
+            sources: Some(crate::sources::SourceConfig {
+                endpoint: required("DEEPRESEARCH_GATEWAY_URL")?,
+                token: std::env::var("DEEPRESEARCH_SOURCE_TOKEN").ok(),
+                tools: required("DEEPRESEARCH_SOURCE_TOOLS")?
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_owned)
+                    .collect(),
+                file_origins: std::env::var("DEEPRESEARCH_FILE_ORIGINS")
+                    .unwrap_or_default()
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_owned)
+                    .collect(),
+            }),
             model: std::env::var("DEEPRESEARCH_MODEL").ok(),
             max_workers: std::env::var("DEEPRESEARCH_MAX_WORKERS")
                 .unwrap_or_else(|_| "1".into())
@@ -350,10 +349,17 @@ async fn run_process(
     )
     .map_err(storage_error)?;
     let output_path = dir.join("answer.json");
-    let tools = if assignment.kind == AssignmentKind::Investigate {
-        config.source_tools.clone()
+    let sources = if assignment.kind == AssignmentKind::Investigate {
+        if let Some(source_config) = &config.sources {
+            Some(tokio::select! {
+                result = crate::sources::AssignmentSources::start(source_config.clone(), assignment.remaining_tool_calls, cancel.clone(), dir.join("sources")) => result?,
+                _ = tokio::time::sleep_until(deadline) => return Err(RuntimeError::TimedOut),
+            })
+        } else {
+            None
+        }
     } else {
-        vec![]
+        None
     };
     let mut command = Command::new(&config.executable);
     command
@@ -392,32 +398,25 @@ async fn run_process(
         .stderr(Stdio::null())
         .kill_on_drop(true)
         .process_group(0);
-    if assignment.kind == AssignmentKind::Investigate {
+    if let Some(sources) = &sources {
         command
             .arg("-c")
             .arg(format!(
                 "mcp_servers.sources.url={}",
-                json!(config.gateway_url)
+                json!(sources.endpoint)
             ))
-            .arg("-c")
-            .arg(format!(
-                "mcp_servers.sources.enabled_tools={}",
-                json!(tools)
-            ))
-            .arg("-c")
-            .arg(format!(
-                "mcp_servers.sources.bearer_token_env_var={}",
-                json!(config.token_env)
-            ))
-            .args(["-c", "mcp_servers.sources.required=true"]);
+            .args([
+                "-c",
+                "mcp_servers.sources.bearer_token_env_var=\"RESEARCH_SOURCE_TOKEN\"",
+                "-c",
+                "mcp_servers.sources.required=true",
+            ])
+            .env("RESEARCH_SOURCE_TOKEN", &sources.token);
     }
     for name in ["PATH", "SSL_CERT_FILE", "SSL_CERT_DIR"] {
         if let Some(value) = std::env::var_os(name) {
             command.env(name, value);
         }
-    }
-    if let Some(token) = std::env::var_os(&config.token_env) {
-        command.env(&config.token_env, token);
     }
     if let Some(model) = &config.model {
         command.args(["--model", model]);
