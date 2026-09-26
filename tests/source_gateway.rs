@@ -82,7 +82,7 @@ impl ServerHandler for Gateway {
                 json!({"documents":[{"file":{"uri":"mcp-file://fixture/nested"}}]})
             }
             "read" => {
-                json!({"result":{"file":{"uri":"mcp-file://fixture/paper","size":PAPER.len()}}})
+                json!({"result":{"file":{"uri":"mcp-file://fixture/paper","size":PAPER.len()},"attribution":"Fixture document attribution."}})
             }
             _ => panic!("non-source operation escaped the allowlist"),
         };
@@ -223,6 +223,7 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
     assert_ne!(recovered.is_error, Some(true), "{recovered:?}");
     let text = recovered.structured_content.unwrap().to_string();
     assert!(text.contains("Actual retrieved text"));
+    assert!(text.contains("Fixture document attribution."));
     assert!(!text.contains("host-only"));
     assert_eq!(downloads.load(Ordering::SeqCst), 2);
     let oversized = client

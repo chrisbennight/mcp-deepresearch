@@ -354,26 +354,6 @@ impl SourceAccess {
                 "source tool requested an unsupported interactive continuation",
             ));
         }
-        if let Some(file) = retained_file(&result) {
-            let file: FileValue = serde_json::from_value(file.clone())
-                .map_err(|_| failure("invalid retained source reference"))?;
-            let id = uuid::Uuid::new_v4().to_string();
-            let path = self.directory.join(format!("{id}.txt"));
-            self.materials.lock().await.insert(
-                id.clone(),
-                Material {
-                    path,
-                    remote: Some(file),
-                    nested_files: false,
-                },
-            );
-            return match self.read_material(&id, 0).await {
-                Ok(value) => Ok(value),
-                Err(error) => Ok(
-                    json!({"operation_status":"succeeded","delivery_status":"failed","material_id":id,"error":error.to_string(),"guidance":"Retry read_source_material with this material_id. Do not repeat the successful source operation."}),
-                ),
-            };
-        }
         let mut parts = Vec::new();
         if let Some(value) = result.get("structuredContent") {
             parts.push(serde_json::to_string(value).expect("JSON serializes"));
@@ -393,6 +373,30 @@ impl SourceAccess {
         if text.len() > MAX_FILE_BYTES {
             return Err(failure("source material exceeds the text ingestion limit"));
         }
+        if let Some(file) = retained_file(&result) {
+            let file: FileValue = serde_json::from_value(file.clone())
+                .map_err(|_| failure("invalid retained source reference"))?;
+            let id = uuid::Uuid::new_v4().to_string();
+            let path = self.directory.join(format!("{id}.txt"));
+            tokio::fs::write(path.with_extension("context.txt"), &text)
+                .await
+                .map_err(|_| failure("source material storage unavailable"))?;
+            let nested_files = contains_file_reference(&result, Some(&file.uri));
+            self.materials.lock().await.insert(
+                id.clone(),
+                Material {
+                    path,
+                    remote: Some(file),
+                    nested_files,
+                },
+            );
+            return match self.read_material(&id, 0).await {
+                Ok(value) => Ok(value),
+                Err(error) => Ok(
+                    json!({"operation_status":"succeeded","delivery_status":"failed","material_id":id,"error":error.to_string(),"guidance":"Retry read_source_material with this material_id. Do not repeat the successful source operation."}),
+                ),
+            };
+        }
         if text.is_empty() {
             return Err(failure("source tool returned no readable text"));
         }
@@ -406,11 +410,11 @@ impl SourceAccess {
             Material {
                 path,
                 remote: None,
-                nested_files: contains_file_reference(&result),
+                nested_files: contains_file_reference(&result, None),
             },
         );
         let mut selected = excerpt(&text, &id, 0);
-        if contains_file_reference(&result) {
+        if contains_file_reference(&result, None) {
             selected["delivery_limitations"] = json!([
                 "Nested file references were not downloaded. Only inline text and metadata were read; use a configured extraction tool for the referenced documents."
             ]);
@@ -425,12 +429,24 @@ impl SourceAccess {
             .get(id)
             .cloned()
             .ok_or_else(|| failure("source material is not available to this assignment"))?;
+        let context = if material.remote.is_some() {
+            tokio::fs::read_to_string(material.path.with_extension("context.txt"))
+                .await
+                .map_err(|_| failure("source attribution is unavailable"))?
+        } else {
+            String::new()
+        };
         if !material.path.exists() {
             let file = material
                 .remote
                 .as_ref()
                 .ok_or_else(|| failure("source material is unavailable"))?;
-            self.download(file, &material.path).await?;
+            self.download(
+                file,
+                &material.path,
+                MAX_FILE_BYTES.saturating_sub(context.len() + 2),
+            )
+            .await?;
         }
         let text = tokio::fs::read_to_string(&material.path)
             .await
@@ -439,6 +455,11 @@ impl SourceAccess {
                     "source material is not readable UTF-8 text; use a configured extraction tool",
                 )
             })?;
+        let text = if context.is_empty() {
+            text
+        } else {
+            format!("{context}\n\n{text}")
+        };
         let mut selected = excerpt(&text, id, offset);
         if material.nested_files {
             selected["delivery_limitations"] = json!([
@@ -447,7 +468,12 @@ impl SourceAccess {
         }
         Ok(selected)
     }
-    async fn download(&self, file: &FileValue, path: &Path) -> Result<(), RuntimeError> {
+    async fn download(
+        &self,
+        file: &FileValue,
+        path: &Path,
+        limit: usize,
+    ) -> Result<(), RuntimeError> {
         let authorized = self
             .request(ClientRequest::CustomRequest(CustomRequest::new(
                 "files/authorizeDownload",
@@ -502,7 +528,7 @@ impl SourceAccess {
             .map_err(|_| failure("source file transfer interrupted"))?
         {
             size += chunk.len();
-            if size > MAX_FILE_BYTES {
+            if size > limit {
                 return Err(failure("source file exceeds the text ingestion limit"));
             }
             digest.update(&chunk);
@@ -548,11 +574,15 @@ fn excerpt(text: &str, id: &str, offset: usize) -> Value {
     let next = offset + selected.chars().count();
     json!({"material_id":id,"text":selected,"offset":offset,"next_offset":if text.chars().count()>next {Some(next)} else {None},"evidence_note":"Retrieved tool material. Search snippets are leads, not proof of full-document reading. Cite original URLs and distinguish extracted source text from inference."})
 }
-fn contains_file_reference(value: &Value) -> bool {
+fn contains_file_reference(value: &Value, except: Option<&str>) -> bool {
     match value {
-        Value::String(text) => text.starts_with("mcp-file:"),
-        Value::Array(items) => items.iter().any(contains_file_reference),
-        Value::Object(object) => object.values().any(contains_file_reference),
+        Value::String(text) => text.starts_with("mcp-file:") && Some(text.as_str()) != except,
+        Value::Array(items) => items
+            .iter()
+            .any(|value| contains_file_reference(value, except)),
+        Value::Object(object) => object
+            .values()
+            .any(|value| contains_file_reference(value, except)),
         _ => false,
     }
 }
