@@ -61,7 +61,12 @@ impl Controller {
             research_id: self.workspace.id,
             number: self.workspace.assignments_completed + 1,
             kind: self.kind,
-            objective: self.workspace.request.objective.clone(),
+            objective: format!(
+                "{}\n\nUser context:\n{}\n\nSource constraints:\n{}",
+                self.workspace.request.objective,
+                self.workspace.request.context,
+                self.workspace.request.source_constraints.join("\n")
+            ),
             focus: self.focus.clone(),
             strategy: self.strategy,
             format: self.workspace.request.format,
@@ -132,16 +137,16 @@ impl Controller {
                 "input must contain 1–16000 characters".into(),
             ));
         }
-        if let Status::InputRequired { question } = &self.workspace.status {
-            self.focus = format!(
-                "Continue after the user answered your clarification.\nQuestion: {question}\nAnswer: {input}"
-            );
+        let context = format!(
+            "{}\nUser clarification: {input}",
+            self.workspace.request.context
+        );
+        if context.chars().count() > 16_000 {
+            return Err(ResearchError::Invalid(
+                "combined user context and clarifications must fit within 16000 characters".into(),
+            ));
         }
-        self.workspace
-            .request
-            .context
-            .push_str("\nUser clarification: ");
-        self.workspace.request.context.push_str(input);
+        self.workspace.request.context = context;
         self.workspace.status = Status::Working;
         Ok(())
     }

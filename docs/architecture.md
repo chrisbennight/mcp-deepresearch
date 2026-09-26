@@ -82,3 +82,9 @@ an execution queue and does not resume a running external process.
 Fixture tests establish orchestration behavior, including strategy transitions and
 bounded review. They do not measure answer quality or prove that a model investigates
 the right questions. Those require matched live evaluation and human judgment.
+
+
+Assignments carry the complete user objective, context, accepted clarifications and
+source constraints separately from selected research evidence. User context and
+clarifications share a bounded input allowance; an oversized addition is refused
+rather than silently discarded. Evidence selection must not erase the user's brief.

@@ -143,11 +143,8 @@ impl Workspace {
         append_bounded(
             &mut output,
             &format!(
-                "User context: {}\nConstraints: {:?}\nOpen questions: {:?}\nOutline: {:?}\n",
-                self.request.context,
-                self.request.source_constraints,
-                self.uncertainties,
-                self.outline
+                "Open questions: {:?}\nOutline: {:?}\n",
+                self.uncertainties, self.outline
             ),
             limit / 4,
         );

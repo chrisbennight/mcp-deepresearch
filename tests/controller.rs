@@ -131,8 +131,8 @@ fn wall_clock_and_clarification_state_survive_serialization() {
     ));
 }
 
-#[test]
-fn accepted_clarification_reaches_next_assignment_even_when_old_context_is_full() {
+#[tokio::test]
+async fn accepted_clarification_reaches_investigation_writing_and_review() {
     let mut control = controller(Strategy::Comparison);
     control.workspace.request.limits.context_chars = 2000;
     control.workspace.request.context = "Old background. ".repeat(200);
@@ -142,13 +142,20 @@ fn accepted_clarification_reaches_next_assignment_even_when_old_context_is_full(
     control
         .provide_input("Prioritize recovery over latency.")
         .unwrap();
-    let assignment = control.assignment(runtime::unix_seconds()).unwrap();
-    assert!(
-        assignment
-            .focus
-            .contains("Prioritize recovery over latency.")
-    );
-    assert!(assignment.context.chars().count() <= 2000);
+    while let Some(assignment) = control.assignment(runtime::unix_seconds()) {
+        assert!(
+            assignment
+                .objective
+                .contains("Prioritize recovery over latency.")
+        );
+        assert!(assignment.context.chars().count() <= 2000);
+        let result = FixtureRuntime::default()
+            .execute(assignment, CancellationToken::new())
+            .await
+            .unwrap();
+        control.complete(result).unwrap();
+    }
+    assert_eq!(control.workspace.status, Status::Completed);
 }
 
 #[tokio::test]

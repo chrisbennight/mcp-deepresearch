@@ -96,6 +96,11 @@ impl ResearchRequest {
                 "objective must contain 1–16000 characters".into(),
             ));
         }
+        if self.context.chars().count() > 16_000 {
+            return Err(ResearchError::Invalid(
+                "user context must fit within 16000 characters".into(),
+            ));
+        }
         if !(2..=32).contains(&self.limits.max_assignments)
             || !(10..=7200).contains(&self.limits.wall_seconds)
             || !(2000..=128_000).contains(&self.limits.context_chars)
