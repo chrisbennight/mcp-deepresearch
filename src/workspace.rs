@@ -143,11 +143,8 @@ impl Workspace {
         append_bounded(
             &mut output,
             &format!(
-                "User context: {}\nConstraints: {:?}\nOpen questions: {:?}\nOutline: {:?}\n",
-                self.request.context,
-                self.request.source_constraints,
-                self.uncertainties,
-                self.outline
+                "Open questions: {:?}\nOutline: {:?}\n",
+                self.uncertainties, self.outline
             ),
             limit / 4,
         );
@@ -189,6 +186,11 @@ impl Workspace {
         let mut report = self.draft.clone();
         if report.is_empty() {
             report = format!("# Partial research\n\n{}\n", self.request.objective);
+        }
+        if self.draft.is_empty() || self.status != Status::Completed {
+            if !self.draft.is_empty() {
+                report.push_str("\n\n## Collected findings\n\nThe draft above may predate the latest evidence. These findings have not necessarily all been synthesized into it.\n");
+            }
             for note in &self.notes {
                 report.push_str(&format!(
                     "\n- {} {}",
