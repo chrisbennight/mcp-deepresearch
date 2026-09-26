@@ -455,13 +455,15 @@ impl SourceAccess {
                     "source material is not readable UTF-8 text; use a configured extraction tool",
                 )
             })?;
+        let downloaded_references = serde_json::from_str::<Value>(&text)
+            .is_ok_and(|value| contains_file_reference(&value, None));
         let text = if context.is_empty() {
             text
         } else {
             format!("{context}\n\n{text}")
         };
         let mut selected = excerpt(&text, id, offset);
-        if material.nested_files {
+        if material.nested_files || downloaded_references {
             selected["delivery_limitations"] = json!([
                 "Nested file references were not downloaded. Only inline text and metadata were read."
             ]);

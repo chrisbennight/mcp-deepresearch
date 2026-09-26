@@ -46,6 +46,11 @@ and SHA-256 integrity requirements match. This digest is a file-transfer check,
 not a research history or transaction ledger. The current reader accepts UTF-8 text;
 use a configured extraction tool for PDFs and other binary formats.
 
+The inline JSON limit is applied after the MCP SDK decodes the response; it limits
+retained material, not peak transport memory. Configure the trusted gateway to use
+file-backed delivery for large responses and give the service a container memory
+limit. A bounded JSON decoder is not implemented in this adapter.
+
 Mixed results retain both structured metadata and distinct text blocks. Nested
 `mcp-file:` references outside the supported retained-result envelopes are reported
 as an explicit delivery limitation; their presence does not mean their bytes were read.

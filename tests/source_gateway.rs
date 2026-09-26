@@ -19,7 +19,7 @@ use std::sync::{
 };
 use tokio_util::sync::CancellationToken;
 
-const PAPER: &str = "https://example.org/paper\nActual retrieved text.";
+const PAPER: &str = r#"{"url":"https://example.org/paper","text":"Actual retrieved text.","document":{"uri":"mcp-file://fixture/underlying-document"}}"#;
 
 #[derive(Clone)]
 struct Gateway {
@@ -221,7 +221,14 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
         .await
         .unwrap();
     assert_ne!(recovered.is_error, Some(true), "{recovered:?}");
-    let text = recovered.structured_content.unwrap().to_string();
+    let recovered = recovered.structured_content.unwrap();
+    assert!(
+        recovered["delivery_limitations"][0]
+            .as_str()
+            .unwrap()
+            .contains("not downloaded")
+    );
+    let text = recovered.to_string();
     assert!(text.contains("Actual retrieved text"));
     assert!(text.contains("Fixture document attribution."));
     assert!(!text.contains("host-only"));
