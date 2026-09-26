@@ -6,7 +6,7 @@ use std::{
 };
 use tokio_util::sync::CancellationToken;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error, serde::Serialize, serde::Deserialize)]
 pub enum RuntimeError {
     #[error("assignment cancelled after worker termination")]
     Cancelled,

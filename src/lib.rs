@@ -1,3 +1,4 @@
+pub mod codex;
 pub mod controller;
 pub mod research;
 pub mod runtime;
