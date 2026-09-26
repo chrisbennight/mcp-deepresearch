@@ -89,8 +89,21 @@ async fn assignment_exhaustion_preserves_a_partial_answer() {
 async fn cancellation_does_not_accept_late_results() {
     let mut control = controller(Strategy::Focused);
     let token = CancellationToken::new();
-    token.cancel();
-    runtime::run(&FixtureRuntime::default(), &mut control, token).await;
+    struct LateResult(CancellationToken);
+    impl AgentRuntime for LateResult {
+        async fn execute(
+            &self,
+            assignment: Assignment,
+            cancel: CancellationToken,
+        ) -> Result<AssignmentResult, RuntimeError> {
+            let result = FixtureRuntime::default()
+                .execute(assignment, cancel)
+                .await?;
+            self.0.cancel();
+            Ok(result)
+        }
+    }
+    runtime::run(&LateResult(token.clone()), &mut control, token).await;
     assert_eq!(control.workspace.status, Status::Cancelled);
     assert_eq!(control.workspace.assignments_completed, 0);
 }
