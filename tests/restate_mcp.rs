@@ -361,13 +361,9 @@ async fn native_tasks_survive_reconnect_restart_and_support_input_revision_and_c
     let upload_path = application.directory.join("files").join("uploads");
     std::fs::remove_dir_all(&upload_path).unwrap();
     std::fs::create_dir(&upload_path).unwrap();
-    let revision = rpc(
-        &client,
-        &url,
-        "tools/call",
-        submit(Uuid::new_v4(), Some(id), 60),
-    )
-    .await;
+    let mut revision_request = submit(Uuid::new_v4(), Some(id), 60);
+    revision_request["arguments"]["request"]["attachments"] = json!([uploaded]);
+    let revision = rpc(&client, &url, "tools/call", revision_request).await;
     let revision_task = revision["result"]["taskId"].as_str().unwrap();
     assert_ne!(revision_task, task);
     let _ = wait_status(&client, &url, revision_task, "input_required").await;

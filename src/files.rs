@@ -272,11 +272,11 @@ impl FileStore {
             }
         }
         for uri in uris {
-            let (file, path) = self.attachment(uri).await?;
-            let key = FileKey::parse(uri)?;
-            if attachments.iter().any(|a| a.id == key.id) {
+            if attachments.iter().any(|a| a.uri == *uri) {
                 continue;
             }
+            let (file, path) = self.attachment(uri).await?;
+            let key = FileKey::parse(uri)?;
             retain_attachment(&path, &directory.join(key.id.to_string())).await?;
             let text = tokio::fs::read_to_string(directory.join(key.id.to_string()))
                 .await
