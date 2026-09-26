@@ -101,3 +101,19 @@ fn invalid_requests_fail_before_work_starts() {
     req.limits.max_assignments = 0;
     assert!(Workspace::new("alice".into(), req).is_err());
 }
+
+#[test]
+fn unfinished_report_includes_evidence_gathered_after_the_draft() {
+    let mut workspace = Workspace::new("alice".into(), request()).unwrap();
+    workspace.apply(result()).unwrap();
+    let mut followup = result();
+    followup.draft = None;
+    followup.findings[0].text = "New evidence changes the recommendation.".into();
+    workspace.apply(followup).unwrap();
+    workspace.status = Status::Exhausted {
+        reason: "source-tool limit".into(),
+    };
+    let report = workspace.report();
+    assert!(report.contains("New evidence changes the recommendation."));
+    assert!(report.contains("may predate the latest evidence"));
+}
