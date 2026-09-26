@@ -225,6 +225,9 @@ impl ResearchMcp {
 }
 
 impl ServerHandler for ResearchMcp {
+    fn supported_protocol_versions(&self) -> std::borrow::Cow<'static, [ProtocolVersion]> {
+        std::borrow::Cow::Owned(vec![ProtocolVersion::V_2026_07_28])
+    }
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().enable_tasks().build()).with_protocol_version(ProtocolVersion::V_2026_07_28)
             .with_server_info(Implementation::new("mcp-deepresearch",env!("CARGO_PKG_VERSION")))
@@ -559,12 +562,34 @@ async fn authenticate(
     {
         return Err(StatusCode::BAD_REQUEST);
     }
+    let discovery = request
+        .headers()
+        .get("Mcp-Method")
+        .is_some_and(|v| v == "server/discover");
     let (parts, body) = request.into_parts();
     let bytes = tokio::time::timeout(Duration::from_secs(10), to_bytes(body, 512 * 1024))
         .await
         .map_err(|_| StatusCode::REQUEST_TIMEOUT)?
         .map_err(|_| StatusCode::PAYLOAD_TOO_LARGE)?;
-    Ok(next
+    let response = next
         .run(Request::from_parts(parts, Body::from(bytes)))
-        .await)
+        .await;
+    if !discovery || !response.status().is_success() {
+        return Ok(response);
+    }
+    // The SDK does not yet model draft file capabilities. Extend only its discovery result.
+    let (mut parts, body) = response.into_parts();
+    let bytes = to_bytes(body, 64 * 1024)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let mut value: Value =
+        serde_json::from_slice(&bytes).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if let Some(capabilities) = value.pointer_mut("/result/capabilities") {
+        capabilities["files"] = json!({"upload":true,"download":true,"transports":["https"]});
+    }
+    parts.headers.remove(axum::http::header::CONTENT_LENGTH);
+    Ok(Response::from_parts(
+        parts,
+        Body::from(serde_json::to_vec(&value).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?),
+    ))
 }

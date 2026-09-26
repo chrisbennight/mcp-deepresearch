@@ -192,6 +192,16 @@ async fn native_tasks_survive_reconnect_restart_and_support_input_revision_and_c
         discovery.get("result").is_some(),
         "discovery failed: {discovery}"
     );
+    let discovery = rpc(&client, &url, "server/discover", json!({})).await;
+    assert_eq!(discovery["result"]["capabilities"]["files"]["upload"], true);
+    assert_eq!(
+        discovery["result"]["capabilities"]["files"]["download"],
+        true
+    );
+    assert_eq!(
+        discovery["result"]["supportedVersions"],
+        json!(["2026-07-28"])
+    );
     let tools = rpc(&client, &url, "tools/list", json!({})).await;
     for tool in tools["result"]["tools"].as_array().unwrap() {
         for hint in [
