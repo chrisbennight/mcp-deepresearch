@@ -147,19 +147,7 @@ impl Research {
         };
         workspace.id = submission.id;
         workspace.attachments = submission.attachments;
-        for (index, attachment) in workspace.attachments.iter().enumerate() {
-            let id = format!("S{}", 1_000_000 + index);
-            workspace
-                .sources
-                .entry(id.clone())
-                .or_insert_with(|| Source {
-                    id,
-                    url: attachment.uri.clone(),
-                    title: attachment.name.clone(),
-                    excerpt: attachment.excerpt.clone(),
-                    needs_refresh: false,
-                });
-        }
+        workspace.include_attachment_sources();
         let mut state = ResearchState {
             controller: Controller::new(workspace, submission.created_at),
             stage: "queued".into(),

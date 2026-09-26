@@ -289,6 +289,7 @@ impl FileStore {
                 return Err("attachment contains no text");
             }
             attachments.push(crate::research::Attachment {
+                source_id: String::new(),
                 id: key.id,
                 name: file.name,
                 uri: file.uri,

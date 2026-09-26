@@ -45,6 +45,31 @@ impl Workspace {
         })
     }
 
+    pub fn include_attachment_sources(&mut self) {
+        for attachment in &mut self.attachments {
+            if let Some(source) = self.sources.values().find(|s| s.url == attachment.uri) {
+                attachment.source_id = source.id.clone();
+                continue;
+            }
+            let mut number = 1_000_000;
+            while self.sources.contains_key(&format!("S{number}")) {
+                number += 1;
+            }
+            let id = format!("S{number}");
+            attachment.source_id = id.clone();
+            self.sources.insert(
+                id.clone(),
+                Source {
+                    id,
+                    url: attachment.uri.clone(),
+                    title: attachment.name.clone(),
+                    excerpt: attachment.excerpt.clone(),
+                    needs_refresh: false,
+                },
+            );
+        }
+    }
+
     pub fn authorize(&self, principal: &str) -> Result<(), ResearchError> {
         if self.owner == principal {
             Ok(())

@@ -180,6 +180,7 @@ pub enum AssignmentKind {
 
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct Attachment {
+    pub source_id: String,
     pub id: uuid::Uuid,
     pub name: String,
     pub uri: String,
