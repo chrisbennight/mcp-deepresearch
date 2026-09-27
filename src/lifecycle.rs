@@ -215,6 +215,7 @@ impl Research {
                 break;
             };
             state.stage = match assignment.kind {
+                AssignmentKind::CompleteResearch => "complete research",
                 AssignmentKind::Investigate => "investigate",
                 AssignmentKind::Synthesize => "write",
                 AssignmentKind::Review => "review",

@@ -10,11 +10,58 @@ use tokio_util::sync::CancellationToken;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().collect();
+    if (args.len() == 4 || args.len() == 5) && args[1] == "walkthrough" {
+        return mcp_deepresearch::walkthrough::run(
+            std::path::Path::new(&args[2]),
+            std::path::Path::new(&args[3]),
+            args.get(4).map(std::path::Path::new),
+        )
+        .await;
+    }
+    if args.len() == 5 && args[1] == "evaluate" {
+        let cases = serde_json::from_slice(&std::fs::read(&args[3])?)?;
+        let root = std::path::Path::new(&args[4]);
+        let cancel = CancellationToken::new();
+        let stop = cancel.clone();
+        let signal = tokio::spawn(async move {
+            if tokio::signal::ctrl_c().await.is_ok() {
+                stop.cancel();
+            }
+        });
+        let result = match args[2].as_str() {
+            "fixture" => {
+                mcp_deepresearch::evaluation::compare(
+                    &FixtureRuntime::default(),
+                    cases,
+                    "fixture",
+                    root,
+                    cancel,
+                )
+                .await?
+            }
+            "live" => {
+                mcp_deepresearch::evaluation::compare(
+                    &CodexRuntime::from_environment(root.join("workers"))?,
+                    cases,
+                    "live",
+                    root,
+                    cancel,
+                )
+                .await?
+            }
+            _ => return Err("evaluate mode must be fixture or live".into()),
+        };
+        signal.abort();
+        println!("{}", serde_json::to_string_pretty(&result)?);
+        return Ok(());
+    }
     if args.len() == 4 && args[1] == "serve" {
         return serve(&args[2], std::path::Path::new(&args[3])).await;
     }
     if args.len() != 4 || !matches!(args[1].as_str(), "fixture" | "live") {
-        eprintln!("Usage: mcp-deepresearch <fixture|live> <request.json> <workspace-directory>");
+        eprintln!(
+            "Usage: mcp-deepresearch <fixture|live> <request.json> <workspace-directory>; serve <fixture|live> <workspace-directory>; evaluate <fixture|live> <cases.json> <output-directory>; walkthrough <request.json> <output-directory> [text-attachment]"
+        );
         std::process::exit(2);
     }
     let request: ResearchRequest = serde_json::from_slice(&std::fs::read(&args[2])?)?;

@@ -134,7 +134,10 @@ impl AgentRuntime for FixtureRuntime {
                 };
                 result.next = NextAction::Synthesize;
             }
-            AssignmentKind::Synthesize => {
+            AssignmentKind::Synthesize | AssignmentKind::CompleteResearch => {
+                if assignment.kind == AssignmentKind::CompleteResearch {
+                    result.sources = self.sources.clone();
+                }
                 let mut draft = format!(
                     "# Fixture research\n\nQuestion: {}\n\n",
                     assignment.objective

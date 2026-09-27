@@ -1,0 +1,7 @@
+.git
+.worktrees
+target
+workspaces
+.env
+**/auth.json
+**/*.log

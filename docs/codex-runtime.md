@@ -32,7 +32,8 @@ configured account's allowance. Subscription availability and quota are not guar
 Keep authenticated homes and workspaces private. Account refresh may write to the
 Codex home; do not bake credentials into an image or copy them into committed examples.
 
-The adapter ignores ordinary user configuration and rule files, disables shell tools,
+The adapter explicitly enables Codex's `mcp_2026_07_28` feature for the current source protocol.
+It ignores ordinary user configuration and rule files, disables shell tools,
 subagents and built-in web search, and connects to the host-managed [source adapter](source-access.md) during
 investigation. Writing and review use collected evidence without a gateway connection.
 Use a gateway credential restricted to source operations: never permit administrative
@@ -71,8 +72,18 @@ retrieving an already completed result must not trigger another worker.
 
 Local process fixtures exercise concurrent attachment, restart retrieval, interrupted
 execution, process-group cancellation and timeout. They use actual child processes
-but never contact Codex, a model, or a gateway. Live provider/protocol compatibility
-still requires the opt-in integrated walkthrough; these tests are not that evidence.
+but never contact Codex, a model, or a gateway. An opt-in real-provider check is also available:
+
+```sh
+cargo test --locked --test live_codex -- --ignored
+```
+
+Set `DEEPRESEARCH_CODEX_HOME` and an account-supported `DEEPRESEARCH_MODEL` first.
+Run as the owner of that dedicated authenticated home. This consumes the account's
+allowance and uses only an invented local MCP source. It verified Codex CLI 0.157.0
+with the current MCP feature enabled: actual source invocation, structured output,
+and retained cited evidence. It does not establish live Kagi access or answer quality.
+The full gateway/source walkthrough still requires operator configuration.
 
 References:
 

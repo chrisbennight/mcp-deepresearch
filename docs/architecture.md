@@ -89,9 +89,11 @@ the right questions. Those require matched live evaluation and human judgment.
 
 
 Assignments carry the complete user objective, context, accepted clarifications and
-source constraints separately from selected research evidence. User context and
-clarifications share a bounded input allowance; an oversized addition is refused
-rather than silently discarded. Evidence selection must not erase the user's brief.
+source constraints separately from selected research evidence. Initial context and
+each clarification answer have separate input limits; the finite assignment budget
+bounds clarification turns. Accepted clarifications extend the brief instead of
+evicting earlier user context. This can increase prompt size beyond the original
+admission allowance. Evidence selection must not erase the user's brief.
 
 See the [service guide](service.md) for the supported single-host deployment,
 retention, recovery limits, protocol contract, and isolated integration walkthrough.

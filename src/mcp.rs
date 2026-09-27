@@ -540,7 +540,8 @@ pub fn router(
             (config, files.transport().to_owned()),
             authenticate,
         ))
-        .merge(files.router()))
+        .merge(files.router())
+        .route("/health", axum::routing::get(|| async { StatusCode::OK })))
 }
 async fn authenticate(
     State((config, file_transport)): State<(ServiceConfig, String)>,
