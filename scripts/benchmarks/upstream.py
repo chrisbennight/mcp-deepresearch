@@ -42,7 +42,7 @@ def recipe(kind, checkout, output, tasks, measurements, answers, args):
     if kind != "deepsearchqa" and not checkout:
         raise ValueError("this evaluator requires --checkout")
     checkout, output = Path(checkout or ".").resolve(), Path(output).resolve()
-    py = ["uv", "run", "--no-project", "--no-sync", str(Path(args.python).resolve())]
+    py = ["uv", "run", "--no-project", "--no-sync", str(Path(args.python).absolute())]
     commands = []
     def script(name, *arguments):
         commands.append({"argv": py + [str(checkout/name), *map(str, arguments)], "cwd": str(checkout)})

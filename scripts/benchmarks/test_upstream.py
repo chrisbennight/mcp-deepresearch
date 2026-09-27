@@ -3,6 +3,8 @@ import argparse
 import json
 from pathlib import Path
 import tempfile
+import subprocess
+import venv
 import unittest
 from unittest.mock import patch
 from .data import import_tasks, read
@@ -62,7 +64,11 @@ class UpstreamContracts(unittest.TestCase):
             tasks=import_tasks("deer",root,allow_noncommercial=True)
             self.assertEqual([t["id"] for t in tasks],["physics.1"])
             out=root/"out";out.mkdir()
-            commands=recipe("deer",root,out,tasks,[dict(case="physics.1",research_id="run")],{"run":"answer"},options())
+            environment=root/"environment"
+            venv.EnvBuilder(symlinks=True,with_pip=False).create(environment)
+            commands=recipe("deer",root,out,tasks,[dict(case="physics.1",research_id="run")],{"run":"answer"},options(python=environment/"bin/python"))
+            interpreter=subprocess.run(commands[0]["argv"][:5]+["-c","import sys; print(sys.prefix)"],capture_output=True,text=True,check=True)
+            self.assertEqual(Path(interpreter.stdout.strip()),environment)
             self.assertEqual((out/"data/physics/1/candidate_1.md").read_text(),"answer")
             self.assertEqual(len(commands),3)
             self.assertIn("--output_root",commands[0]["argv"])
