@@ -56,6 +56,35 @@ impl Inquiry {
                     result.uncertainties.push(uncertainty.clone());
                 }
             }
+            for question in &mut result.questions {
+                if let Some(previous) = workspace.questions.get(&question.id) {
+                    if !previous.answer.is_empty() && previous.answer != question.answer {
+                        question.answer = format!(
+                            "Earlier finding: {}\nIndependent finding: {}",
+                            previous.answer, question.answer
+                        );
+                    }
+                    for source in &previous.sources {
+                        if !question.sources.contains(source) {
+                            question.sources.push(source.clone());
+                        }
+                    }
+                    if *kind == AssignmentKind::IndependentResearch
+                        && !previous.remaining_gap.is_empty()
+                        && previous.remaining_gap != question.remaining_gap
+                    {
+                        question.remaining_gap = format!(
+                            "Other investigation reported: {}\n{}",
+                            previous.remaining_gap, question.remaining_gap
+                        );
+                    }
+                }
+            }
+        }
+        // Research and coverage assessment update evidence; only the writer/reviewer
+        // can replace the complete answer to the original user request.
+        if !matches!(kind, AssignmentKind::Synthesize | AssignmentKind::Review) {
+            result.draft = None;
         }
         if let NextAction::AskUser { question } = &result.next {
             let question = question.clone();
@@ -89,41 +118,7 @@ impl Inquiry {
                 "synthesis returned no answer".into(),
             ));
         }
-        if matches!(
-            kind,
-            AssignmentKind::PrimaryResearch | AssignmentKind::IndependentResearch
-        ) {
-            for question in &mut result.questions {
-                if let Some(previous) = workspace.questions.get(&question.id) {
-                    if !previous.answer.is_empty() && previous.answer != question.answer {
-                        question.answer = format!(
-                            "Earlier finding: {}\nIndependent finding: {}",
-                            previous.answer, question.answer
-                        );
-                    }
-                    for source in &previous.sources {
-                        if !question.sources.contains(source) {
-                            question.sources.push(source.clone());
-                        }
-                    }
-                    if *kind == AssignmentKind::IndependentResearch
-                        && !previous.remaining_gap.is_empty()
-                        && previous.remaining_gap != question.remaining_gap
-                    {
-                        question.remaining_gap = format!(
-                            "Other investigation reported: {}\n{}",
-                            previous.remaining_gap, question.remaining_gap
-                        );
-                    }
-                }
-            }
-        }
         let plan = result.research_plan.clone();
-        // Research and coverage assessment update evidence; only the writer/reviewer
-        // can replace the complete answer to the original user request.
-        if !matches!(kind, AssignmentKind::Synthesize | AssignmentKind::Review) {
-            result.draft = None;
-        }
         let next = workspace.apply(result)?;
         match *kind {
             AssignmentKind::Reconnaissance => {

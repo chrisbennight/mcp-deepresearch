@@ -243,7 +243,7 @@ async fn synthesis_can_request_evidence_before_writing_an_answer() {
 }
 
 #[tokio::test]
-async fn primary_research_can_resolve_a_reconnaissance_question() {
+async fn resolved_answers_survive_independent_clarification() {
     let mut controller = Controller::new(
         Workspace::new("test".into(), request()).unwrap(),
         runtime::unix_seconds(),
@@ -268,6 +268,32 @@ async fn primary_research_can_resolve_a_reconnaissance_question() {
             .remaining_gap
             .is_empty()
     );
+    let assignment = controller.assignment(runtime::unix_seconds()).unwrap();
+    assert_eq!(assignment.kind, AssignmentKind::IndependentResearch);
+    let mut result = FixtureRuntime::default()
+        .execute(assignment, CancellationToken::new())
+        .await
+        .unwrap();
+    let mut question = controller.workspace.questions["Q1"].clone();
+    question.answer.clear();
+    question.sources.clear();
+    result.questions = vec![question];
+    result.next = NextAction::AskUser {
+        question: "Which recovery scenario matters?".into(),
+    };
+    result.draft = Some("An investigator fragment must not replace the complete answer.".into());
+    controller.complete(result).unwrap();
+    assert!(matches!(
+        controller.workspace.status,
+        Status::InputRequired { .. }
+    ));
+    assert!(
+        controller.workspace.questions["Q1"]
+            .answer
+            .contains("Recovery reuses completed steps.")
+    );
+    assert_eq!(controller.workspace.questions["Q1"].sources, vec!["S1"]);
+    assert!(controller.workspace.draft.is_empty());
 }
 
 #[test]
