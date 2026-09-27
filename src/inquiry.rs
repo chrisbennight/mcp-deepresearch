@@ -47,6 +47,16 @@ impl Inquiry {
         focus: &mut String,
         mut result: AssignmentResult,
     ) -> Result<(), ResearchError> {
+        if matches!(
+            kind,
+            AssignmentKind::PrimaryResearch | AssignmentKind::IndependentResearch
+        ) {
+            for uncertainty in &workspace.uncertainties {
+                if !result.uncertainties.contains(uncertainty) {
+                    result.uncertainties.push(uncertainty.clone());
+                }
+            }
+        }
         if let NextAction::AskUser { question } = &result.next {
             let question = question.clone();
             workspace.apply(result)?;

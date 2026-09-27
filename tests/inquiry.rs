@@ -27,6 +27,7 @@ impl AgentRuntime for ResearchFixture {
             assignment.research_id, assignment.number
         ));
         if assignment.kind == AssignmentKind::PrimaryResearch {
+            result.uncertainties.push("Primary-only caveat".into());
             result.findings.push(Finding {
                 text: "Primary-only finding".into(),
                 sources: vec!["S1".into()],
@@ -45,6 +46,7 @@ impl AgentRuntime for ResearchFixture {
         }
         if assignment.kind == AssignmentKind::CoverageReview {
             assert!(assignment.context.contains("Primary-only finding"));
+            assert!(assignment.context.contains("Primary-only caveat"));
             assert!(assignment.context.contains("Q-material"));
         }
         if assignment.kind == AssignmentKind::Review

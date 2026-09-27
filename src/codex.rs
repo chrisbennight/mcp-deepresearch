@@ -499,15 +499,15 @@ async fn run_process(
                 .collect();
             if assignment.policy != ResearchPolicy::Staged {
                 for number in 1..assignment.number {
-                    // Independent initial research can read the common reconnaissance,
-                    // but not the other researcher's retrieved material or conclusions.
-                    if assignment.kind == AssignmentKind::IndependentResearch && number != 1 {
+                    let previous_assignment = config
+                        .work_root
+                        .join(format!("{}-{number}", assignment.research_id));
+                    if assignment.kind == AssignmentKind::IndependentResearch
+                        && !visible_to_independent(&previous_assignment)?
+                    {
                         continue;
                     }
-                    let previous = config
-                        .work_root
-                        .join(format!("{}-{number}", assignment.research_id))
-                        .join("sources");
+                    let previous = previous_assignment.join("sources");
                     match std::fs::read_dir(previous) {
                         Ok(entries) => {
                             for entry in entries {
@@ -727,4 +727,46 @@ async fn run_process(
     )
     .map_err(storage_error)?;
     Ok(result)
+}
+
+// Use recorded roles because clarification can consume several assignments before research.
+fn visible_to_independent(directory: &Path) -> Result<bool, RuntimeError> {
+    #[derive(Deserialize)]
+    struct Role {
+        kind: AssignmentKind,
+    }
+    let bytes = std::fs::read(directory.join("assignment.json")).map_err(storage_error)?;
+    let role: Role = serde_json::from_slice(&bytes)
+        .map_err(|_| RuntimeError::Failed("retained assignment role could not be read".into()))?;
+    Ok(matches!(
+        role.kind,
+        AssignmentKind::Reconnaissance | AssignmentKind::IndependentResearch
+    ))
+}
+
+#[cfg(test)]
+mod research_material_tests {
+    use super::*;
+    #[test]
+    fn independent_research_can_read_reconnaissance_after_clarification_but_not_peer_material() {
+        let root =
+            std::env::temp_dir().join(format!("research-material-{}", ResearchId::default()));
+        std::fs::create_dir(&root).unwrap();
+        for (number, kind, expected) in [
+            (1, AssignmentKind::Reconnaissance, true),
+            (2, AssignmentKind::Reconnaissance, true),
+            (3, AssignmentKind::PrimaryResearch, false),
+            (4, AssignmentKind::IndependentResearch, true),
+        ] {
+            let dir = root.join(number.to_string());
+            std::fs::create_dir(&dir).unwrap();
+            std::fs::write(
+                dir.join("assignment.json"),
+                serde_json::to_vec(&json!({"kind":kind})).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(visible_to_independent(&dir).unwrap(), expected);
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }
