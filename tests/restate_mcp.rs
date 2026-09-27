@@ -101,7 +101,7 @@ impl Drop for Application {
 }
 
 async fn rpc(client: &reqwest::Client, url: &str, method: &str, mut params: Value) -> Value {
-    params["_meta"] = json!({"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{"files":{"upload":true,"download":true,"transports":["https"]},"extensions":{"io.modelcontextprotocol/tasks":{}}}});
+    params["_meta"] = json!({"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{"files":{"upload":true,"download":true,"transports":["https","http"]},"extensions":{"io.modelcontextprotocol/tasks":{}}}});
     let mut request = client
         .post(url)
         .bearer_auth("local-fixture-token")
@@ -240,6 +240,7 @@ async fn native_tasks_survive_reconnect_restart_and_support_input_revision_and_c
             .unwrap(),
         rmcp::model::ServerResult::CustomResult(_)
     ));
+    assert_eq!(authorization["result"]["upload"]["transport"], "http");
     let uploaded = authorization["result"]["file"]["uri"].as_str().unwrap();
     let descriptor = &authorization["result"]["upload"];
     let upload = client

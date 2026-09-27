@@ -389,7 +389,11 @@ impl ServerHandler for ResearchMcp {
                     return Ok(self
                         .report(
                             workspace,
-                            crate::files::client_supports(&context.meta, "download"),
+                            crate::files::client_supports(
+                                &context.meta,
+                                "download",
+                                self.files.transport(),
+                            ),
                         )
                         .await
                         .into());
@@ -407,7 +411,7 @@ impl ServerHandler for ResearchMcp {
     ) -> Result<GetTaskResult, ErrorData> {
         self.detailed(
             research_id(&request.task_id)?,
-            crate::files::client_supports(&context.meta, "download"),
+            crate::files::client_supports(&context.meta, "download", self.files.transport()),
         )
         .await
     }
@@ -419,17 +423,18 @@ impl ServerHandler for ResearchMcp {
         let params = request.params.unwrap_or_else(|| json!({}));
         let value = match request.method.as_ref() {
             "files/authorizeUpload" => {
-                if !crate::files::client_supports(&context.meta, "upload") {
+                if !crate::files::client_supports(&context.meta, "upload", self.files.transport()) {
                     return Err(error(
-                        "declare request-local files.upload and https transport capability",
+                        "declare request-local files.upload and the advertised file transport capability",
                     ));
                 }
                 self.files.authorize_upload(params).await.map_err(error)?
             }
             "files/authorizeDownload" => {
-                if !crate::files::client_supports(&context.meta, "download") {
+                if !crate::files::client_supports(&context.meta, "download", self.files.transport())
+                {
                     return Err(error(
-                        "declare request-local files.download and https transport capability",
+                        "declare request-local files.download and the advertised file transport capability",
                     ));
                 }
                 self.files
@@ -531,11 +536,14 @@ pub fn router(
     );
     Ok(Router::new()
         .nest_service("/mcp", transport)
-        .layer(middleware::from_fn_with_state(config, authenticate))
+        .layer(middleware::from_fn_with_state(
+            (config, files.transport().to_owned()),
+            authenticate,
+        ))
         .merge(files.router()))
 }
 async fn authenticate(
-    State(config): State<ServiceConfig>,
+    State((config, file_transport)): State<(ServiceConfig, String)>,
     request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
@@ -585,7 +593,8 @@ async fn authenticate(
     let mut value: Value =
         serde_json::from_slice(&bytes).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     if let Some(capabilities) = value.pointer_mut("/result/capabilities") {
-        capabilities["files"] = json!({"upload":true,"download":true,"transports":["https"]});
+        capabilities["files"] =
+            json!({"upload":true,"download":true,"transports":[file_transport]});
     }
     parts.headers.remove(axum::http::header::CONTENT_LENGTH);
     Ok(Response::from_parts(

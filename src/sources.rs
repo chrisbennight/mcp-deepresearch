@@ -326,7 +326,7 @@ impl SourceAccess {
         let mut meta = RequestMetaObject::new();
         meta.insert(
             "io.modelcontextprotocol/clientCapabilities".into(),
-            json!({"files":{"download":true,"transports":["https"]}}),
+            json!({"files":{"download":true,"transports":if self.endpoint.scheme() == "http" {vec!["https", "http"]} else {vec!["https"]}}}),
         );
         if let Some(value) = &self.trace_context.traceparent {
             meta.set_traceparent(value);
@@ -534,8 +534,9 @@ impl SourceAccess {
             || !url.username().is_empty()
             || url.password().is_some()
             || authorization.download.method != "GET"
-            || authorization.download.transport != "https"
-            || !(url.scheme() == "https" || (same_origin && self.endpoint.scheme() == "http"))
+            || authorization.download.transport != url.scheme()
+            || !(url.scheme() == "https"
+                || (url.scheme() == "http" && same_origin && self.endpoint.scheme() == "http"))
         {
             return Err(failure("source file transfer destination is not approved"));
         }

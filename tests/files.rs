@@ -15,6 +15,7 @@ async fn files_require_owner_and_transfer_authority_without_rerunning_research()
         .await
         .unwrap();
     let descriptor = &failed["upload"];
+    assert_eq!(descriptor["transport"], "http");
     let response = client
         .put(descriptor["url"].as_str().unwrap())
         .header(
