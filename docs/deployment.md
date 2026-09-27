@@ -85,6 +85,24 @@ Host allowlist accordingly, and keep byte routes reachable by the gateway's nati
 file-transfer host. These routes use short-lived transfer authority. Keep TLS and
 network policy at the gateway boundary; do not publish the workflow listener.
 
+## Verified integration and remaining gap
+
+The direct container walkthrough completes upload, research, and native report
+download. An actual authenticated Codex CLI 0.157.0 assignment also used a local
+MCP 2026-07-28 source and returned structured evidence. This establishes runtime
+compatibility, not live Kagi research quality.
+
+Against [Waygate's merged Tasks implementation](https://github.com/chrisbennight/waygate/commit/417219b12e4f5d83c79b1fa41af6354d93f844cf),
+an isolated fixture passed discovery, native upload, research submission,
+clarification, terminal task delivery, and observed cancellation, including
+annotation-mode admission. Full report-file delivery through that Gateway version
+is blocked by [Waygate #55](https://github.com/chrisbennight/waygate/issues/55):
+tool and task requests omit the upstream file capabilities needed to offer a
+report file. Inline results remain available; direct native file delivery works.
+Do not treat the Gateway walkthrough as fully passing until that issue is resolved
+and the complete report-download path is rerun. No legacy transport or replacement
+task API is used to bypass the gap.
+
 ## Diagnose and operate
 
 | Symptom | Check |
