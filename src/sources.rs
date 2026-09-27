@@ -37,6 +37,9 @@ use std::{
 use tokio::{io::AsyncWriteExt, sync::Mutex};
 use tokio_util::sync::CancellationToken;
 
+const NESTED_FILE_LIMITATION: &str =
+    "Nested file references were not downloaded. Only inline text and metadata were read.";
+
 const MAX_FILE_BYTES: usize = 16 * 1024 * 1024;
 const MAX_EXCERPT_CHARS: usize = 32_000;
 const CALL_TIMEOUT: Duration = Duration::from_secs(90);
@@ -471,10 +474,15 @@ impl SourceAccess {
                 .map_err(|_| failure("invalid retained source reference"))?;
             let id = uuid::Uuid::new_v4().to_string();
             let path = self.directory.join(format!("{id}.txt"));
-            tokio::fs::write(path.with_extension("context.txt"), &text)
+            let nested_files = contains_file_reference(&result, Some(&file.uri));
+            let context = if nested_files {
+                format!("{NESTED_FILE_LIMITATION}\n\n{text}")
+            } else {
+                text
+            };
+            tokio::fs::write(path.with_extension("context.txt"), &context)
                 .await
                 .map_err(|_| failure("source material storage unavailable"))?;
-            let nested_files = contains_file_reference(&result, Some(&file.uri));
             self.materials.lock().await.insert(
                 id.clone(),
                 Material {
@@ -498,21 +506,21 @@ impl SourceAccess {
         tokio::fs::write(&path, &text)
             .await
             .map_err(|_| failure("source material storage unavailable"))?;
+        let nested_files = contains_file_reference(&result, None);
+        if nested_files {
+            tokio::fs::write(path.with_extension("context.txt"), NESTED_FILE_LIMITATION)
+                .await
+                .map_err(|_| failure("source material storage unavailable"))?;
+        }
         self.materials.lock().await.insert(
             id.clone(),
             Material {
                 path,
                 remote: None,
-                nested_files: contains_file_reference(&result, None),
+                nested_files,
             },
         );
-        let mut selected = excerpt(&text, &id, 0);
-        if contains_file_reference(&result, None) {
-            selected["delivery_limitations"] = json!([
-                "Nested file references were not downloaded. Only inline text and metadata were read; use a configured extraction tool for the referenced documents."
-            ]);
-        }
-        Ok(selected)
+        self.read_material(&id, 0).await
     }
     async fn read_material(&self, id: &str, offset: usize) -> Result<Value, RuntimeError> {
         let material = self
@@ -560,10 +568,11 @@ impl SourceAccess {
             format!("{context}\n\n{text}")
         };
         let mut selected = excerpt(&text, id, offset);
-        if material.nested_files || downloaded_references {
-            selected["delivery_limitations"] = json!([
-                "Nested file references were not downloaded. Only inline text and metadata were read."
-            ]);
+        if material.nested_files
+            || downloaded_references
+            || context.starts_with(NESTED_FILE_LIMITATION)
+        {
+            selected["delivery_limitations"] = json!([NESTED_FILE_LIMITATION]);
         }
         Ok(selected)
     }

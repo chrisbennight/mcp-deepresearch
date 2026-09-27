@@ -301,20 +301,52 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
     assert!(text.contains("Fixture document attribution."));
     assert!(!text.contains("host-only"));
     assert_eq!(downloads.load(Ordering::SeqCst), 2);
+    let oversized = client
+        .call_tool(
+            CallToolRequestParams::new("search")
+                .with_arguments(json!({"oversized":true}).as_object().unwrap().clone()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(oversized.is_error, Some(true));
+    assert!(
+        oversized.structured_content.unwrap()["error"]
+            .as_str()
+            .unwrap()
+            .contains("ingestion limit")
+    );
+    let nested = client
+        .call_tool(
+            CallToolRequestParams::new("read")
+                .with_arguments(json!({"nested":true}).as_object().unwrap().clone()),
+        )
+        .await
+        .unwrap();
+    let nested = nested.structured_content.unwrap();
+    assert!(
+        nested["delivery_limitations"][0]
+            .as_str()
+            .unwrap()
+            .contains("not downloaded")
+    );
     let material_id = pending["material_id"].as_str().unwrap();
+    let nested_id = nested["material_id"].as_str().unwrap();
     let reopened = AssignmentSources::start(
         SourceConfig {
-            local_materials: vec![(
-                material_id.into(),
-                directory.join(format!("{material_id}.txt")),
-            )],
+            local_materials: vec![
+                (
+                    material_id.into(),
+                    directory.join(format!("{material_id}.txt")),
+                ),
+                (nested_id.into(), directory.join(format!("{nested_id}.txt"))),
+            ],
             trace_context: mcp_deepresearch::research::TraceContext::default(),
             endpoint: format!("{origin}/mcp"),
             token: None,
             tools: vec!["search".into(), "read".into()],
             file_origins: vec![],
         },
-        2,
+        3,
         stop.clone(),
         directory.join("next-assignment"),
     )
@@ -356,36 +388,34 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
                 .collect::<String>()
         );
     }
+    let reread = reopened_client
+        .call_tool(
+            CallToolRequestParams::new("read_source_material").with_arguments(
+                json!({"material_id": nested_id, "offset": 17})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await
+        .unwrap();
+    let reread = reread.structured_content.unwrap();
+    assert_eq!(
+        reread["delivery_limitations"],
+        nested["delivery_limitations"]
+    );
+    assert_eq!(
+        reread["text"].as_str().unwrap(),
+        nested["text"]
+            .as_str()
+            .unwrap()
+            .chars()
+            .skip(17)
+            .collect::<String>()
+    );
     reopened_client.cancel().await.unwrap();
     drop(reopened);
 
-    let oversized = client
-        .call_tool(
-            CallToolRequestParams::new("search")
-                .with_arguments(json!({"oversized":true}).as_object().unwrap().clone()),
-        )
-        .await
-        .unwrap();
-    assert_eq!(oversized.is_error, Some(true));
-    assert!(
-        oversized.structured_content.unwrap()["error"]
-            .as_str()
-            .unwrap()
-            .contains("ingestion limit")
-    );
-    let nested = client
-        .call_tool(
-            CallToolRequestParams::new("read")
-                .with_arguments(json!({"nested":true}).as_object().unwrap().clone()),
-        )
-        .await
-        .unwrap();
-    assert!(
-        nested.structured_content.unwrap()["delivery_limitations"][0]
-            .as_str()
-            .unwrap()
-            .contains("not downloaded")
-    );
     let exhausted = client
         .call_tool(CallToolRequestParams::new("search"))
         .await
