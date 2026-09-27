@@ -40,6 +40,8 @@ cargo run --locked -- judge evals/scored/reference.json ./baseline/evaluation.js
 
 The evaluator runs fresh sessions with the arm labels and timing withheld. It sees
 the user question, reference requirements, primary-source URLs, and delivered answer.
+Completion metadata uses neutral wording. Answer style and content may still suggest
+a workflow, so this is not a guarantee of perfect blinding.
 An operator can supply an `evidence` string in a separate reference file with retrieved
 primary passages. Keep copyrighted full documents and private evaluation artifacts
 outside the public repository. Source tools remain available to the evaluator for

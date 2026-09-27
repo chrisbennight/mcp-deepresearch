@@ -192,8 +192,9 @@ pub async fn judge<R: AgentRuntime>(
             .iter()
             .find(|c| c.id == measurement.case)
             .ok_or("missing reference case")?;
-        let answer =
-            std::fs::read_to_string(answer_root.join(format!("{}.md", measurement.research_id)))?;
+        let answer = assessment_text(&std::fs::read_to_string(
+            answer_root.join(format!("{}.md", measurement.research_id)),
+        )?);
         let ids: HashSet<_> = case.criteria.iter().map(|c| &c.id).collect();
         if case.objective.trim().is_empty() || ids.is_empty() || ids.len() != case.criteria.len() {
             return Err(
@@ -251,4 +252,23 @@ pub async fn judge<R: AgentRuntime>(
         &output.join("judgments.json"),
         &output.join("scores.json"),
     )
+}
+
+fn assessment_text(answer: &str) -> String {
+    answer.replace(
+        "\n\nResearch stopped: single-session baseline ",
+        "\n\nResearch stopped: agent ",
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn legacy_completion_metadata_does_not_identify_the_workflow() {
+        let answer = "Supported answer.\n\nResearch stopped: single-session baseline requested further work.\n\n## Sources\n[S1]: https://example.org";
+        assert_eq!(
+            super::assessment_text(answer),
+            "Supported answer.\n\nResearch stopped: agent requested further work.\n\n## Sources\n[S1]: https://example.org"
+        );
+    }
 }

@@ -155,7 +155,7 @@ pub async fn compare<R: AgentRuntime>(
                             }
                             Ok(NextAction::Investigate { .. } | NextAction::Synthesize) => {
                                 controller.workspace.status = Status::Exhausted {
-                                    reason: "single-session baseline requested further work".into(),
+                                    reason: "agent requested further work".into(),
                                 };
                             }
                             Ok(NextAction::Finish) if complete => {
@@ -163,8 +163,7 @@ pub async fn compare<R: AgentRuntime>(
                             }
                             Ok(NextAction::Finish) => {
                                 controller.workspace.status = Status::Failed {
-                                    reason: "single-session baseline returned no final answer"
-                                        .into(),
+                                    reason: "agent returned no final answer".into(),
                                 }
                             }
                         }
