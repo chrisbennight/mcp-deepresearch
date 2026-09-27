@@ -10,6 +10,26 @@ use tokio_util::sync::CancellationToken;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().collect();
+    if args.len() == 4 && args[1] == "corpus" {
+        return mcp_deepresearch::corpus::serve(std::path::Path::new(&args[2]), args[3].parse()?)
+            .await;
+    }
+    if args.len() == 4 && args[1] == "assess" {
+        let request = serde_json::from_slice(&std::fs::read(&args[2])?)?;
+        let output = std::path::Path::new(&args[3]);
+        std::fs::create_dir(output)?;
+        let worker = CodexRuntime::from_environment(output.join("workers"))?;
+        let cancel = CancellationToken::new();
+        let stop = cancel.clone();
+        let signal = tokio::spawn(async move {
+            if tokio::signal::ctrl_c().await.is_ok() {
+                stop.cancel();
+            }
+        });
+        let result = mcp_deepresearch::assessment::run(&worker, request, output, cancel).await;
+        signal.abort();
+        return result;
+    }
     if args.len() == 5 && args[1] == "judge" {
         let output = std::path::Path::new(&args[4]);
         let runtime = CodexRuntime::from_environment(output.join("workers"))?;

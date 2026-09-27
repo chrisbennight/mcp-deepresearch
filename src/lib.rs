@@ -14,3 +14,7 @@ pub mod mcp;
 pub mod walkthrough;
 
 pub mod scoring;
+
+pub mod assessment;
+
+pub mod corpus;

@@ -18,6 +18,7 @@ fn case() -> Case {
     Case {
         id: "contract".into(),
         single_session_policy: false,
+        baseline_first: false,
         request: serde_json::from_value(
             serde_json::json!({"objective":"Compare the fixture alternatives"}),
         )
