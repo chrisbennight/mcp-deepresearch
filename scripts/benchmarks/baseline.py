@@ -47,6 +47,19 @@ def download(url, target):
         shutil.copyfileobj(response, output)
 
 
+def select_reflect(samples):
+    # Published defect rows can reuse the same whole-report answer pair.
+    chosen, traces, pairs = {}, set(), set()
+    for row in samples:
+        pair = (row["whole_original_answer"], row["whole_perturbed_answer"])
+        defect = row["perturbation_type"]
+        if defect not in chosen and row["trace_id"] not in traces and pair not in pairs:
+            chosen[defect] = row
+            traces.add(row["trace_id"])
+            pairs.add(pair)
+    return list(chosen.values())
+
+
 def prepare(root, args):
     raw = root / "data"
     raw.mkdir()
@@ -75,11 +88,8 @@ def prepare(root, args):
         manifest["benchmarks"][kind] = {"ids": ids, "available_tasks": available, "source": url, "topics": topics_url, "release": revision}
     download(REFLECT, raw/"reflect.jsonl")
     samples = data.rows(raw/"reflect.jsonl")
-    # The first pair of each published defect gives a small, explicit diagnostic.
-    chosen = {}
-    for row in samples:
-        chosen.setdefault(row["perturbation_type"], row)
-    (raw/"reflect-selected.jsonl").write_text("".join(json.dumps(row)+"\n" for row in chosen.values()))
+    chosen = select_reflect(samples)
+    (raw/"reflect-selected.jsonl").write_text("".join(json.dumps(row)+"\n" for row in chosen))
     manifest["qualification"] = {"source": REFLECT, "release": REFLECT_REV, "pairs": len(chosen)}
     data.write(root/"baseline.json", manifest)
     return manifest

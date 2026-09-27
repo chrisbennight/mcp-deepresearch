@@ -37,8 +37,9 @@ uv run --no-project python scripts/benchmark.py baseline /private/eval/run
 
 This downloads the data, selects two tasks from each scored dataset, compares the
 selected research policy against the single-session control, grades saved answers,
-and creates `summary.json` and `summary.md`. It then checks one REFLECT pair per defect
-in both orders. The research conditions are matched between agents and their execution
+and creates `summary.json` and `summary.md`. It then checks one REFLECT pair per available defect
+in both orders, using distinct research traces and answer pairs. Published labels
+are not proof that a pair isolates only that defect. The research conditions are matched between agents and their execution
 order alternates. Default limits are 1,200 seconds and 80 source calls per research
 attempt; grading allows 600 seconds and 24 calls per assessment. Grading can inspect
 sources and does not receive the agent identity or elapsed time.
