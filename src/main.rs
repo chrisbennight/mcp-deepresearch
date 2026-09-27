@@ -64,6 +64,9 @@ async fn serve(mode: &str, root: &std::path::Path) -> Result<(), Box<dyn std::er
         _ => return Err("serve mode must be fixture or live".into()),
     };
     let config = ServiceConfig {
+        file_root: root.join("files"),
+        file_origin: std::env::var("DEEPRESEARCH_FILE_ORIGIN")
+            .unwrap_or_else(|_| "http://127.0.0.1:8088".into()),
         restate_ingress: std::env::var("DEEPRESEARCH_RESTATE_INGRESS")
             .unwrap_or_else(|_| "http://127.0.0.1:8080".into()),
         principal: std::env::var("DEEPRESEARCH_PRINCIPAL")?,

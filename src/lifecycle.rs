@@ -63,6 +63,7 @@ impl Worker {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Submission {
+    pub attachments: Vec<Attachment>,
     pub trace_context: TraceContext,
     pub id: ResearchId,
     pub owner: String,
@@ -145,6 +146,8 @@ impl Research {
             Workspace::new(submission.owner, submission.request).map_err(terminal)?
         };
         workspace.id = submission.id;
+        workspace.attachments = submission.attachments;
+        workspace.include_attachment_sources();
         let mut state = ResearchState {
             controller: Controller::new(workspace, submission.created_at),
             stage: "queued".into(),

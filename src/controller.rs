@@ -61,6 +61,7 @@ impl Controller {
             self.focus = "Use available evidence to produce the best partial answer; disclose unfinished research.".into();
         }
         Some(Assignment {
+            attachments: self.workspace.attachments.clone(),
             deadline_unix_seconds: Some(
                 self.started_at
                     .saturating_add(self.workspace.request.limits.wall_seconds),

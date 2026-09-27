@@ -40,6 +40,10 @@ impl Application {
             .env_clear()
             .env("DEEPRESEARCH_INBOUND_TOKEN", "local-fixture-token")
             .env("DEEPRESEARCH_PRINCIPAL", "fixture-owner")
+            .env(
+                "DEEPRESEARCH_FILE_ORIGIN",
+                format!("http://127.0.0.1:{mcp}"),
+            )
             .env("DEEPRESEARCH_RESTATE_INGRESS", ingress)
             .env("DEEPRESEARCH_MCP_LISTEN", format!("127.0.0.1:{mcp}"))
             .env(
@@ -97,7 +101,7 @@ impl Drop for Application {
 }
 
 async fn rpc(client: &reqwest::Client, url: &str, method: &str, mut params: Value) -> Value {
-    params["_meta"] = json!({"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{"extensions":{"io.modelcontextprotocol/tasks":{}}}});
+    params["_meta"] = json!({"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{"files":{"upload":true,"download":true,"transports":["https","http"]},"extensions":{"io.modelcontextprotocol/tasks":{}}}});
     let mut request = client
         .post(url)
         .bearer_auth("local-fixture-token")
@@ -188,6 +192,16 @@ async fn native_tasks_survive_reconnect_restart_and_support_input_revision_and_c
         discovery.get("result").is_some(),
         "discovery failed: {discovery}"
     );
+    let discovery = rpc(&client, &url, "server/discover", json!({})).await;
+    assert_eq!(discovery["result"]["capabilities"]["files"]["upload"], true);
+    assert_eq!(
+        discovery["result"]["capabilities"]["files"]["download"],
+        true
+    );
+    assert_eq!(
+        discovery["result"]["supportedVersions"],
+        json!(["2026-07-28"])
+    );
     let tools = rpc(&client, &url, "tools/list", json!({})).await;
     for tool in tools["result"]["tools"].as_array().unwrap() {
         for hint in [
@@ -202,8 +216,48 @@ async fn native_tasks_survive_reconnect_restart_and_support_input_revision_and_c
             tool["_meta"]["io.modelcontextprotocol/action-metadata"]["requiresReview"].is_boolean()
         );
     }
+    let submit_tool = tools["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["name"] == "research_submit")
+        .unwrap();
+    assert_eq!(
+        submit_tool["inputSchema"]["$defs"]["ResearchRequest"]["properties"]["attachments"]["items"]
+            ["x-mcp-file"]["transferModes"][0],
+        "upload"
+    );
+    assert!(submit_tool["outputSchema"]["properties"]["file"].is_object());
+    let authorization = rpc(
+        &client,
+        &url,
+        "files/authorizeUpload",
+        json!({"name":"brief.md","mimeType":"text/markdown","size":43}),
+    )
+    .await;
+    assert!(matches!(
+        serde_json::from_value::<rmcp::model::ServerResult>(authorization["result"].clone())
+            .unwrap(),
+        rmcp::model::ServerResult::CustomResult(_)
+    ));
+    assert_eq!(authorization["result"]["upload"]["transport"], "http");
+    let uploaded = authorization["result"]["file"]["uri"].as_str().unwrap();
+    let descriptor = &authorization["result"]["upload"];
+    let upload = client
+        .put(descriptor["url"].as_str().unwrap())
+        .header(
+            "Authorization",
+            descriptor["headers"]["Authorization"].as_str().unwrap(),
+        )
+        .body("Attachment evidence: recovery is essential.")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(upload.status(), reqwest::StatusCode::CREATED);
     let id = Uuid::new_v4();
-    let submitted = rpc(&client, &url, "tools/call", submit(id, None, 60)).await;
+    let mut request = submit(id, None, 60);
+    request["arguments"]["request"]["attachments"] = json!([uploaded]);
+    let submitted = rpc(&client, &url, "tools/call", request).await;
     assert_eq!(submitted["result"]["resultType"], "task", "{submitted}");
     let task = submitted["result"]["taskId"].as_str().unwrap().to_owned();
     let retry = rpc(&client, &url, "tools/call", submit(id, None, 60)).await;
@@ -262,13 +316,70 @@ async fn native_tasks_survive_reconnect_restart_and_support_input_revision_and_c
         wait_status(&client, &url, &task, "completed").await["result"],
         completed["result"]
     );
-    let revision = rpc(
+    let report_file = completed["result"]["structuredContent"]["file"]["uri"]
+        .as_str()
+        .unwrap();
+    let first_download = rpc(
         &client,
         &url,
-        "tools/call",
-        submit(Uuid::new_v4(), Some(id), 60),
+        "files/authorizeDownload",
+        json!({"uri":report_file}),
     )
     .await;
+    let descriptor = &first_download["result"]["download"];
+    assert_eq!(
+        client
+            .get(descriptor["url"].as_str().unwrap())
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        reqwest::StatusCode::UNAUTHORIZED
+    );
+    application.restart();
+    application.ready().await;
+    assert_eq!(
+        client
+            .get(descriptor["url"].as_str().unwrap())
+            .header(
+                "Authorization",
+                descriptor["headers"]["Authorization"].as_str().unwrap()
+            )
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        reqwest::StatusCode::UNAUTHORIZED
+    );
+    let refreshed = rpc(
+        &client,
+        &url,
+        "files/authorizeDownload",
+        json!({"uri":report_file}),
+    )
+    .await;
+    let descriptor = &refreshed["result"]["download"];
+    let downloaded = client
+        .get(descriptor["url"].as_str().unwrap())
+        .header(
+            "Authorization",
+            descriptor["headers"]["Authorization"].as_str().unwrap(),
+        )
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert_eq!(downloaded, report);
+    let upload_path = application.directory.join("files").join("uploads");
+    std::fs::remove_dir_all(&upload_path).unwrap();
+    std::fs::create_dir(&upload_path).unwrap();
+    let mut revision_request = submit(Uuid::new_v4(), Some(id), 60);
+    revision_request["arguments"]["request"]["attachments"] = json!([uploaded]);
+    let revision = rpc(&client, &url, "tools/call", revision_request).await;
     let revision_task = revision["result"]["taskId"].as_str().unwrap();
     assert_ne!(revision_task, task);
     let _ = wait_status(&client, &url, revision_task, "input_required").await;

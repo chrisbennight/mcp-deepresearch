@@ -87,6 +87,7 @@ impl ServerHandler for Gateway {
             _ => panic!("non-source operation escaped the allowlist"),
         };
         let mut result = CallToolResult::structured(value);
+        result.content.push(serde_json::from_value(json!({"type":"resource","resource":{"uri":"https://example.org/embedded","text":"Embedded document body.","mimeType":"text/plain"}})).unwrap());
         if params.name == "search" {
             result.content.push(ContentBlock::text(
                 "Distinct text supplied alongside structured metadata.",
@@ -146,16 +147,24 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
     );
     let directory =
         std::env::temp_dir().join(format!("research-source-test-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let attachment_path = directory.join("admitted.txt");
+    std::fs::write(
+        &attachment_path,
+        "Evidence retained from an admitted attachment.",
+    )
+    .unwrap();
     let server = tokio::spawn(axum::serve(listener, router).into_future());
     let source = AssignmentSources::start(
         SourceConfig {
+            local_materials: vec![("attachment-fixture".into(), attachment_path)],
             trace_context: mcp_deepresearch::research::TraceContext::default(),
             endpoint: format!("{origin}/mcp"),
             token: None,
             tools: vec!["search".into(), "read".into()],
             file_origins: vec![],
         },
-        5,
+        6,
         stop.clone(),
         directory.clone(),
     )
@@ -189,6 +198,23 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
             .await
             .is_err()
     );
+    let attachment = client
+        .call_tool(
+            CallToolRequestParams::new("read_source_material").with_arguments(
+                json!({"material_id":"attachment-fixture"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await
+        .unwrap();
+    assert!(
+        attachment.structured_content.unwrap()["text"]
+            .as_str()
+            .unwrap()
+            .contains("Evidence retained from an admitted attachment.")
+    );
     let search = client
         .call_tool(CallToolRequestParams::new("search"))
         .await
@@ -203,6 +229,8 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
         .as_str()
         .unwrap();
     assert!(mixed.contains("Distinct text supplied alongside structured metadata."));
+    assert!(mixed.contains("Embedded document body."));
+    assert!(mixed.contains("https://example.org/embedded"));
     let read = client
         .call_tool(CallToolRequestParams::new("read"))
         .await
@@ -304,6 +332,7 @@ async fn cancelling_stalled_tool_discovery_returns_without_waiting_for_timeout()
     let starting = tokio::spawn(async move {
         AssignmentSources::start(
             SourceConfig {
+                local_materials: Vec::new(),
                 trace_context: mcp_deepresearch::research::TraceContext::default(),
                 endpoint: format!("{origin}/mcp"),
                 token: None,

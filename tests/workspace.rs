@@ -117,3 +117,37 @@ fn unfinished_report_includes_evidence_gathered_after_the_draft() {
     assert!(report.contains("New evidence changes the recommendation."));
     assert!(report.contains("may predate the latest evidence"));
 }
+
+#[test]
+fn added_attachments_do_not_reuse_an_existing_web_citation() {
+    let request = serde_json::from_str(r#"{"objective":"Review the attachments"}"#).unwrap();
+    let mut workspace = Workspace::new("operator".into(), request).unwrap();
+    workspace.sources.insert(
+        "S1000000".into(),
+        Source {
+            id: "S1000000".into(),
+            url: "https://example.org/web".into(),
+            title: "Web source".into(),
+            excerpt: "Web evidence".into(),
+            needs_refresh: true,
+        },
+    );
+    workspace.attachments.push(Attachment {
+        id: uuid::Uuid::new_v4(),
+        source_id: String::new(),
+        name: "Document".into(),
+        uri: "mcp-file://fixture/document".into(),
+        excerpt: "Document evidence".into(),
+    });
+    workspace.include_attachment_sources();
+    let id = workspace.attachments[0].source_id.clone();
+    assert_ne!(id, "S1000000");
+    assert_eq!(workspace.sources[&id].url, workspace.attachments[0].uri);
+    workspace.sources.get_mut(&id).unwrap().excerpt = "A subsequently read passage".into();
+    workspace.include_attachment_sources();
+    assert_eq!(workspace.attachments[0].source_id, id);
+    assert_eq!(
+        workspace.sources[&id].excerpt,
+        "A subsequently read passage"
+    );
+}

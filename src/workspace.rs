@@ -9,6 +9,8 @@ use std::{
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Workspace {
+    #[serde(default)]
+    pub attachments: Vec<Attachment>,
     pub id: ResearchId,
     pub owner: String,
     pub request: ResearchRequest,
@@ -27,6 +29,7 @@ impl Workspace {
     pub fn new(owner: String, request: ResearchRequest) -> Result<Self, ResearchError> {
         request.validate()?;
         Ok(Self {
+            attachments: Vec::new(),
             id: ResearchId::default(),
             owner,
             request,
@@ -40,6 +43,31 @@ impl Workspace {
             tool_calls_observed: 0,
             tool_usage_complete: true,
         })
+    }
+
+    pub fn include_attachment_sources(&mut self) {
+        for attachment in &mut self.attachments {
+            if let Some(source) = self.sources.values().find(|s| s.url == attachment.uri) {
+                attachment.source_id = source.id.clone();
+                continue;
+            }
+            let mut number = 1_000_000;
+            while self.sources.contains_key(&format!("S{number}")) {
+                number += 1;
+            }
+            let id = format!("S{number}");
+            attachment.source_id = id.clone();
+            self.sources.insert(
+                id.clone(),
+                Source {
+                    id,
+                    url: attachment.uri.clone(),
+                    title: attachment.name.clone(),
+                    excerpt: attachment.excerpt.clone(),
+                    needs_refresh: false,
+                },
+            );
+        }
     }
 
     pub fn authorize(&self, principal: &str) -> Result<(), ResearchError> {
@@ -58,6 +86,7 @@ impl Workspace {
             ));
         }
         let mut revision = Self::new(principal.to_owned(), request)?;
+        revision.attachments = self.attachments.clone();
         revision.sources = self.sources.clone();
         for source in revision.sources.values_mut() {
             source.needs_refresh = true;

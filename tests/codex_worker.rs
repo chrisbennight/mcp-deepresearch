@@ -21,6 +21,7 @@ fn config(script: &str) -> CodexConfig {
 }
 fn assignment() -> Assignment {
     Assignment {
+        attachments: Vec::new(),
         deadline_unix_seconds: None,
         trace_context: TraceContext::default(),
         research_id: ResearchId::default(),

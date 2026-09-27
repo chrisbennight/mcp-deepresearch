@@ -25,13 +25,15 @@ use rmcp::{
     },
 };
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{sync::Arc, time::Duration};
 use tokio_util::sync::CancellationToken;
 
 #[derive(Clone)]
 pub struct ServiceConfig {
+    pub file_root: std::path::PathBuf,
+    pub file_origin: String,
     pub restate_ingress: String,
     pub principal: String,
     pub bearer_current: String,
@@ -40,6 +42,7 @@ pub struct ServiceConfig {
 }
 #[derive(Clone)]
 struct ResearchMcp {
+    files: crate::files::FileStore,
     ingress: ReqwestClient,
     principal: String,
 }
@@ -57,6 +60,24 @@ struct SubmitInput {
 #[serde(deny_unknown_fields)]
 struct ResearchInput {
     research_id: ResearchId,
+}
+
+#[derive(Serialize, JsonSchema)]
+struct ReportOutput {
+    research_id: ResearchId,
+    status: Status,
+    report: String,
+    report_truncated: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    file: Option<crate::files::FileValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    delivery_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    delivery_error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    delivery_limitations: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    retry_operation: Option<bool>,
 }
 
 fn trust(untrusted: bool) -> MetaObject {
@@ -97,6 +118,41 @@ fn timestamp(seconds: u64) -> String {
 }
 
 impl ResearchMcp {
+    async fn report(&self, workspace: &crate::workspace::Workspace, files: bool) -> CallToolResult {
+        let report = workspace.report();
+        let summary: String = report.chars().take(32000).collect();
+        let mut value = ReportOutput {
+            research_id: workspace.id,
+            status: workspace.status.clone(),
+            report_truncated: summary.len() < report.len(),
+            report: summary,
+            file: None,
+            delivery_status: None,
+            delivery_error: None,
+            delivery_limitations: None,
+            retry_operation: None,
+        };
+        if workspace.status.terminal() && files {
+            match self.files.publish_report(workspace.id, &report).await {
+                Ok(file) => {
+                    value.file = Some(file);
+                    value.delivery_status = Some("available".into());
+                }
+                Err(reason) => {
+                    value.delivery_status = Some("unavailable".into());
+                    value.delivery_error = Some(reason.into());
+                    value.retry_operation = Some(false);
+                }
+            }
+        } else if value.report_truncated {
+            value.delivery_limitations = Some(
+                "Enable native file download capability to retrieve the full terminal report."
+                    .into(),
+            );
+        }
+        tool_result(serde_json::to_value(value).expect("report serializes"))
+    }
+
     async fn state(&self, id: ResearchId) -> Result<ResearchState, ErrorData> {
         self.existing(id)
             .await?
@@ -147,7 +203,7 @@ impl ResearchMcp {
         .with_poll_interval_ms(1000)
         .with_status_message(state.stage.clone())
     }
-    async fn detailed(&self, id: ResearchId) -> Result<GetTaskResult, ErrorData> {
+    async fn detailed(&self, id: ResearchId, files: bool) -> Result<GetTaskResult, ErrorData> {
         let state = self.state(id).await?;
         let workspace = &state.controller.workspace;
         let payload=match &workspace.status {
@@ -159,8 +215,8 @@ impl ResearchMcp {
                 let mut requests=InputRequests::new();requests.insert(state.controller.workspace.assignments_completed.to_string(),InputRequest::Elicitation(input));
                 TaskPayload::InputRequired{input_requests:requests}
             },
-            Status::Failed{reason}=>TaskPayload::Failed{error:json!({"code":-32603,"message":reason,"data":{"partial_report":workspace.report(),"_meta":trust(true)}}).as_object().unwrap().clone()},
-            Status::Completed|Status::Exhausted{..}=>TaskPayload::Completed{result:serde_json::to_value(tool_result(json!({"research_id":id,"status":workspace.status,"report":workspace.report()}))).expect("tool result serializes").as_object().unwrap().clone()},
+            Status::Failed{reason}=>TaskPayload::Failed{error:json!({"code":-32603,"message":reason,"data":{"partial_result":self.report(workspace,files).await,"_meta":trust(true)}}).as_object().unwrap().clone()},
+            Status::Completed|Status::Exhausted{..}=>TaskPayload::Completed{result:serde_json::to_value(self.report(workspace,files).await).expect("tool result serializes").as_object().unwrap().clone()},
         };
         let mut result = GetTaskResult::new(DetailedTask::new(Self::task(&state), payload));
         result.meta = Some(trust(true));
@@ -169,6 +225,9 @@ impl ResearchMcp {
 }
 
 impl ServerHandler for ResearchMcp {
+    fn supported_protocol_versions(&self) -> std::borrow::Cow<'static, [ProtocolVersion]> {
+        std::borrow::Cow::Owned(vec![ProtocolVersion::V_2026_07_28])
+    }
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().enable_tasks().build()).with_protocol_version(ProtocolVersion::V_2026_07_28)
             .with_server_info(Implementation::new("mcp-deepresearch",env!("CARGO_PKG_VERSION")))
@@ -179,8 +238,8 @@ impl ServerHandler for ResearchMcp {
         _: Option<PaginatedRequestParams>,
         _: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
-        let mut tools = Vec::new();
-        for (name, description, read_only, schema) in [
+        let mut tools: Vec<Tool> = Vec::new();
+        for (name, description, read_only, mut schema) in [
             (
                 "research_submit",
                 "Investigate a question across sources and return a durable task. Optional previous starts a revision of completed work.",
@@ -200,7 +259,22 @@ impl ServerHandler for ResearchMcp {
                 serde_json::to_value(schemars::schema_for!(ResearchInput)).unwrap(),
             ),
         ] {
+            if name == "research_submit" {
+                schema["$defs"]["ResearchRequest"]["properties"]["attachments"]["items"]["x-mcp-file"] =
+                    json!({"transferModes":["upload"],"maxSize":crate::files::MAX_BYTES});
+            }
             tools.push(serde_json::from_value(json!({"name":name,"description":description,"inputSchema":schema,"annotations":{"readOnlyHint":read_only,"destructiveHint":false,"idempotentHint":true,"openWorldHint":!read_only},"_meta":{"io.modelcontextprotocol/action-metadata":{"inputMetadata":{"destination":if read_only {"internal"} else {"external"},"sensitivity":"sensitive"},"returnMetadata":{"source":"first-party","sensitivity":"sensitive"},"outcome":if read_only {"benign"} else {"research execution"},"requiresReview":false}}})).expect("static tool metadata"));
+        }
+        for tool in &mut tools {
+            if tool.name != "research_status" {
+                tool.output_schema = Some(Arc::new(
+                    serde_json::to_value(schemars::schema_for!(ReportOutput))
+                        .expect("schema")
+                        .as_object()
+                        .expect("object schema")
+                        .clone(),
+                ));
+            }
         }
         Ok(ListToolsResult::with_all_items(tools)
             .with_ttl_ms(30000)
@@ -245,12 +319,22 @@ impl ServerHandler for ResearchMcp {
                 } else {
                     None
                 };
+                let attachments = self
+                    .files
+                    .admit_attachments(
+                        input.request_id,
+                        &input.request.attachments,
+                        previous.as_ref(),
+                    )
+                    .await
+                    .map_err(error)?;
                 let now = runtime::unix_seconds();
                 let workflow = ResearchIngressClient::from_client(
                     self.ingress.clone(),
                     workflow_key(&self.principal, input.request_id),
                 );
                 let mut request = workflow.run(Json(Submission {
+                    attachments,
                     trace_context: crate::research::TraceContext {
                         traceparent: context.meta.get_traceparent().map(str::to_owned),
                         tracestate: context.meta.get_tracestate().map(str::to_owned),
@@ -301,11 +385,20 @@ impl ServerHandler for ResearchMcp {
                     .map_err(|_| error("invalid research identifier"))?;
                 let state = self.state(input.research_id).await?;
                 let workspace = &state.controller.workspace;
-                let value = if params.name == "research_report" {
-                    json!({"research_id":workspace.id,"status":workspace.status,"report":workspace.report()})
-                } else {
-                    json!({"research_id":workspace.id,"status":workspace.status,"stage":state.stage,"assignments_completed":workspace.assignments_completed,"sources":workspace.sources.len(),"uncertainties":workspace.uncertainties})
-                };
+                if params.name == "research_report" {
+                    return Ok(self
+                        .report(
+                            workspace,
+                            crate::files::client_supports(
+                                &context.meta,
+                                "download",
+                                self.files.transport(),
+                            ),
+                        )
+                        .await
+                        .into());
+                }
+                let value = json!({"research_id":workspace.id,"status":workspace.status,"stage":state.stage,"assignments_completed":workspace.assignments_completed,"sources":workspace.sources.len(),"uncertainties":workspace.uncertainties});
                 Ok(tool_result(value).into())
             }
             _ => Err(error("unknown research tool")),
@@ -314,9 +407,57 @@ impl ServerHandler for ResearchMcp {
     async fn get_task(
         &self,
         request: GetTaskParams,
-        _: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<GetTaskResult, ErrorData> {
-        self.detailed(research_id(&request.task_id)?).await
+        self.detailed(
+            research_id(&request.task_id)?,
+            crate::files::client_supports(&context.meta, "download", self.files.transport()),
+        )
+        .await
+    }
+    async fn on_custom_request(
+        &self,
+        request: CustomRequest,
+        context: RequestContext<RoleServer>,
+    ) -> Result<CustomResult, ErrorData> {
+        let params = request.params.unwrap_or_else(|| json!({}));
+        let value = match request.method.as_ref() {
+            "files/authorizeUpload" => {
+                if !crate::files::client_supports(&context.meta, "upload", self.files.transport()) {
+                    return Err(error(
+                        "declare request-local files.upload and the advertised file transport capability",
+                    ));
+                }
+                self.files.authorize_upload(params).await.map_err(error)?
+            }
+            "files/authorizeDownload" => {
+                if !crate::files::client_supports(&context.meta, "download", self.files.transport())
+                {
+                    return Err(error(
+                        "declare request-local files.download and the advertised file transport capability",
+                    ));
+                }
+                self.files
+                    .authorize_download(
+                        params
+                            .get("uri")
+                            .and_then(Value::as_str)
+                            .ok_or_else(|| error("file uri is required"))?,
+                    )
+                    .await
+                    .map_err(error)?
+            }
+            _ => {
+                return Err(ErrorData::new(
+                    ErrorCode::METHOD_NOT_FOUND,
+                    "unknown method",
+                    Some(json!({"_meta":trust(false)})),
+                ));
+            }
+        };
+        // Native transfer authorization is a host control response, not a tool result.
+        // A top-level tool-result _meta makes current SDKs misclassify this custom result.
+        Ok(CustomResult::new(value))
     }
     async fn cancel_task(
         &self,
@@ -374,7 +515,13 @@ pub fn router(
         .timeout(Duration::from_secs(15))
         .redirect(reqwest::redirect::Policy::none())
         .build()?;
+    let files = crate::files::FileStore::new(
+        config.file_root.clone(),
+        config.file_origin.clone(),
+        config.principal.clone(),
+    )?;
     let service = ResearchMcp {
+        files: files.clone(),
         ingress: ReqwestClient::new(config.restate_ingress.parse()?, http)?,
         principal: config.principal.clone(),
     };
@@ -389,10 +536,14 @@ pub fn router(
     );
     Ok(Router::new()
         .nest_service("/mcp", transport)
-        .layer(middleware::from_fn_with_state(config, authenticate)))
+        .layer(middleware::from_fn_with_state(
+            (config, files.transport().to_owned()),
+            authenticate,
+        ))
+        .merge(files.router()))
 }
 async fn authenticate(
-    State(config): State<ServiceConfig>,
+    State((config, file_transport)): State<(ServiceConfig, String)>,
     request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
@@ -419,12 +570,35 @@ async fn authenticate(
     {
         return Err(StatusCode::BAD_REQUEST);
     }
+    let discovery = request
+        .headers()
+        .get("Mcp-Method")
+        .is_some_and(|v| v == "server/discover");
     let (parts, body) = request.into_parts();
     let bytes = tokio::time::timeout(Duration::from_secs(10), to_bytes(body, 512 * 1024))
         .await
         .map_err(|_| StatusCode::REQUEST_TIMEOUT)?
         .map_err(|_| StatusCode::PAYLOAD_TOO_LARGE)?;
-    Ok(next
+    let response = next
         .run(Request::from_parts(parts, Body::from(bytes)))
-        .await)
+        .await;
+    if !discovery || !response.status().is_success() {
+        return Ok(response);
+    }
+    // The SDK does not yet model draft file capabilities. Extend only its discovery result.
+    let (mut parts, body) = response.into_parts();
+    let bytes = to_bytes(body, 64 * 1024)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let mut value: Value =
+        serde_json::from_slice(&bytes).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if let Some(capabilities) = value.pointer_mut("/result/capabilities") {
+        capabilities["files"] =
+            json!({"upload":true,"download":true,"transports":[file_transport]});
+    }
+    parts.headers.remove(axum::http::header::CONTENT_LENGTH);
+    Ok(Response::from_parts(
+        parts,
+        Body::from(serde_json::to_vec(&value).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?),
+    ))
 }

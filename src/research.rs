@@ -178,6 +178,15 @@ pub enum AssignmentKind {
     Review,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
+pub struct Attachment {
+    pub source_id: String,
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub uri: String,
+    pub excerpt: String,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
 pub struct TraceContext {
     pub traceparent: Option<String>,
@@ -186,6 +195,8 @@ pub struct TraceContext {
 
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct Assignment {
+    #[serde(default)]
+    pub attachments: Vec<Attachment>,
     #[serde(default)]
     pub deadline_unix_seconds: Option<u64>,
     #[serde(default)]

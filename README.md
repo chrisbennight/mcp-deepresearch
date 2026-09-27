@@ -65,3 +65,6 @@ recovery behavior. Local process tests verify execution mechanics without model 
 live research quality and gateway wire compatibility are separate integration checks.
 The [source adapter](docs/source-access.md) handles source restrictions, retained
 material, and native file delivery without exposing transfer credentials to the worker.
+
+[Native files](docs/files.md) support text attachments and full Markdown reports
+without carrying file bytes in JSON-RPC or model context.

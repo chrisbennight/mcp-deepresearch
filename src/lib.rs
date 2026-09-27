@@ -8,4 +8,5 @@ pub mod sources;
 
 pub mod lifecycle;
 
+pub mod files;
 pub mod mcp;
