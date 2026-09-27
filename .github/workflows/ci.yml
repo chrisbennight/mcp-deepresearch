@@ -22,6 +22,6 @@ jobs:
         run: cargo test --locked
       - uses: astral-sh/setup-uv@v7
       - name: Published benchmark contracts
-        run: PYTHONPATH=scripts uv run --no-project python -m unittest benchmarks.test_benchmarks
+        run: PYTHONPATH=scripts uv run --no-project python -m unittest discover -s scripts/benchmarks -t scripts
       - name: Native MCP and Restate integration
         run: scripts/test-integration.sh
