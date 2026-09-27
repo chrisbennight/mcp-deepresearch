@@ -123,3 +123,19 @@ baseline we can actually operate with existing access. Track work in the
 Use `--policy multi_agent` to compare the question-driven method across agents, the
 same method in one session, and the ordinary single-session control. Verify observed
 sessions and handoffs before interpreting quality; see [workflow verification](multi-agent-research.md#verify-before-interpreting-scores).
+
+## Interpretation of answer-set scores and run order
+
+Under `adapted-runtime-v2`, DeepSearchQA precision, recall and F1 measure the
+judge's extracted answer-set agreement with the supplied reference. A source
+uncertainty elsewhere in the answer does not erase that agreement. Concrete
+errors and unresolved evidence remain visible alongside the score. A perfect
+match is not proof that the reference or every explanatory claim is correct.
+Earlier `adapted-runtime-v1` results could withhold all set metrics for any
+unresolved evidence; keep those original results when reinterpreting a run.
+
+The experiment runner rotates the first arm across cases and repeats, including
+all three positions for multi-agent comparisons. One attempt still has an order;
+rotation requires multiple cells and does not eliminate changing web results,
+provider caching, or model variability. The explicit `order_offset` in each saved
+case determines its rotation, so isolated resumed cells preserve their order.

@@ -22,6 +22,9 @@ pub struct Case {
     pub single_session_policy: bool,
     #[serde(default)]
     pub baseline_first: bool,
+    /// Explicit rotation for isolated experiment cells; overrides legacy ordering.
+    #[serde(default)]
+    pub order_offset: Option<usize>,
     pub request: ResearchRequest,
     pub assess: Vec<String>,
 }
@@ -163,7 +166,10 @@ pub async fn compare<R: AgentRuntime>(
         } else {
             vec![policy_arm, "single_session"]
         };
-        let rotation = (index + usize::from(case.baseline_first)) % arms.len();
+        let rotation = case
+            .order_offset
+            .unwrap_or(index + usize::from(case.baseline_first))
+            % arms.len();
         arms.rotate_left(rotation);
         for arm in arms {
             let observed = Observed::new(runtime);
@@ -267,7 +273,7 @@ pub async fn compare<R: AgentRuntime>(
             });
         }
     }
-    let result=Evaluation {reasoning_effort:std::env::var("DEEPRESEARCH_REASONING_EFFORT").ok(),mode:mode.into(),model:std::env::var("DEEPRESEARCH_MODEL").unwrap_or_else(|_|"runtime default (record the resolved model for a publishable comparison)".into()),source_tools:std::env::var("DEEPRESEARCH_SOURCE_TOOLS").unwrap_or_default().split(',').filter(|s|!s.is_empty()).map(str::to_owned).collect(),note:"Quality and monetary cost are unscored. Fixture outputs establish only execution. Compare the saved answers blind using the case rubric; failures, input-required runs, and cancellation are not successful answers. Both arms use the same runtime, source tools and per-case wall/tool limits; structured work additionally has its assignment cap. Model context and provider-side caching may differ.".into(),measurements};
+    let result=Evaluation {reasoning_effort:std::env::var("DEEPRESEARCH_REASONING_EFFORT").ok(),mode:mode.into(),model:std::env::var("DEEPRESEARCH_MODEL").unwrap_or_else(|_|"runtime default (record the resolved model for a publishable comparison)".into()),source_tools:std::env::var("DEEPRESEARCH_SOURCE_TOOLS").unwrap_or_default().split(',').filter(|s|!s.is_empty()).map(str::to_owned).collect(),note:"Quality and monetary cost are unscored. Fixture outputs establish only execution. Compare the saved answers blind using the case rubric; failures, input-required runs, and cancellation are not successful answers. All arms use the same runtime, source tools and per-case wall/tool limits; multi-assignment workflows additionally have an assignment cap. Model context and provider-side caching may differ.".into(),measurements};
     tokio::fs::write(
         root.join("evaluation.json"),
         serde_json::to_vec_pretty(&result)?,
