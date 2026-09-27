@@ -56,6 +56,13 @@ def runtime(binary, arguments):
 
 
 class PublicBaseline(unittest.TestCase):
+    def test_reflect_selection_uses_distinct_questions_and_answer_pairs(self):
+        def row(trace, defect, original="original", perturbed="perturbed"):
+            return dict(trace_id=trace,perturbation_type=defect,whole_original_answer=original,whole_perturbed_answer=perturbed)
+        samples = [row("a","fabrication"),row("a","omission"),row("b","omission"),row("c","omission","other original","other perturbed")]
+        selected = baseline.select_reflect(samples)
+        self.assertEqual([(r["trace_id"],r["perturbation_type"]) for r in selected],[("a","fabrication"),("c","omission")])
+
     def options(self, root):
         return argparse.Namespace(output=root,prepare_only=False,tasks_per_benchmark=2,seed=7,
             repeats=1,configuration='contract-test',policy='perspective',seconds=1200,tool_calls=80,
