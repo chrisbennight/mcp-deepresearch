@@ -88,6 +88,7 @@ async fn actual_codex_reads_current_mcp_and_returns_structured_evidence() {
             trace_context: TraceContext::default(),
         }),
         model: std::env::var("DEEPRESEARCH_MODEL").ok(),
+        reasoning_effort: None,
         max_workers: 1,
     })
     .unwrap();

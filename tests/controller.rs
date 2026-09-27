@@ -169,3 +169,90 @@ async fn cancellation_while_waiting_prevents_subsequent_clarification() {
     assert_eq!(control.workspace.status, Status::Cancelled);
     assert!(control.provide_input("Prioritize cost").is_err());
 }
+
+struct CompleteInvestigation;
+impl AgentRuntime for CompleteInvestigation {
+    async fn execute(
+        &self,
+        mut assignment: Assignment,
+        cancel: CancellationToken,
+    ) -> Result<AssignmentResult, RuntimeError> {
+        assignment.kind = AssignmentKind::CompleteResearch;
+        let mut answer = FixtureRuntime::default()
+            .execute(assignment, cancel)
+            .await?;
+        answer.questions.push(ResearchQuestion {
+            id: "recovery".into(),
+            question: "What survives restart?".into(),
+            important: true,
+            answer: "Completed workflow steps".into(),
+            sources: vec!["S1".into()],
+            remaining_gap: String::new(),
+        });
+        Ok(answer)
+    }
+}
+
+#[tokio::test]
+async fn adaptive_research_can_deliver_a_supported_answer_without_forced_rewriting() {
+    let mut control = controller(Strategy::Comparison);
+    control.workspace.request.policy = ResearchPolicy::Adaptive;
+    control.workspace.draft = "Earlier answer awaiting revision".into();
+    runtime::run(
+        &CompleteInvestigation,
+        &mut control,
+        CancellationToken::new(),
+    )
+    .await;
+    assert_eq!(control.workspace.status, Status::Completed);
+    assert_eq!(control.workspace.assignments_completed, 1);
+    assert!(
+        !control
+            .workspace
+            .draft
+            .contains("Earlier answer awaiting revision")
+    );
+    assert!(control.workspace.report().contains("[S1]"));
+    assert!(
+        control
+            .workspace
+            .context("recovery")
+            .contains("What survives restart?")
+    );
+}
+
+#[tokio::test]
+async fn focused_followup_preserves_the_working_answer_when_time_runs_out() {
+    for policy in [
+        ResearchPolicy::Staged,
+        ResearchPolicy::EvidenceAccess,
+        ResearchPolicy::Adaptive,
+    ] {
+        let mut control = controller(Strategy::Collection);
+        control.workspace.request.policy = policy;
+        control.workspace.draft = "Hayabusa; Hayabusa2; OSIRIS-REx".into();
+        control.focus = "Verify Hayabusa's return date".into();
+        let assignment = control.assignment(control.started_at).unwrap();
+        let mut result = FixtureRuntime::default()
+            .execute(assignment, CancellationToken::new())
+            .await
+            .unwrap();
+        result.draft = Some("Hayabusa returned on 13 June 2010 [S1]".into());
+        result.findings = vec![Finding {
+            text: "Hayabusa returned on 13 June 2010".into(),
+            sources: vec!["S1".into()],
+        }];
+        result.next = NextAction::Synthesize;
+        control.complete(result).unwrap();
+        assert!(
+            control
+                .assignment(control.started_at + control.workspace.request.limits.wall_seconds)
+                .is_none()
+        );
+        assert!(matches!(control.workspace.status, Status::Exhausted { .. }));
+        let partial = control.workspace.report();
+        assert!(partial.contains("Hayabusa2"));
+        assert!(partial.contains("OSIRIS-REx"));
+        assert!(partial.contains("13 June 2010"));
+    }
+}

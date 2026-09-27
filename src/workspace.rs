@@ -10,6 +10,8 @@ use std::{
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Workspace {
     #[serde(default)]
+    pub questions: BTreeMap<String, ResearchQuestion>,
+    #[serde(default)]
     pub attachments: Vec<Attachment>,
     pub id: ResearchId,
     pub owner: String,
@@ -29,6 +31,7 @@ impl Workspace {
     pub fn new(owner: String, request: ResearchRequest) -> Result<Self, ResearchError> {
         request.validate()?;
         Ok(Self {
+            questions: BTreeMap::new(),
             attachments: Vec::new(),
             id: ResearchId::default(),
             owner,
@@ -91,6 +94,7 @@ impl Workspace {
         for source in revision.sources.values_mut() {
             source.needs_refresh = true;
         }
+        revision.questions = self.questions.clone();
         revision.notes = self.notes.clone();
         revision.uncertainties = self.uncertainties.clone();
         revision.outline = self.outline.clone();
@@ -134,6 +138,13 @@ impl Workspace {
         if let Some(draft) = &result.draft {
             check_citations(draft, &sources)?;
         }
+        if self.request.policy == ResearchPolicy::Adaptive {
+            self.questions = result
+                .questions
+                .into_iter()
+                .map(|q| (q.id.clone(), q))
+                .collect();
+        }
         self.sources = sources;
         self.notes.extend(result.findings);
         self.uncertainties = result.uncertainties;
@@ -173,8 +184,8 @@ impl Workspace {
         append_bounded(
             &mut output,
             &format!(
-                "Open questions: {:?}\nOutline: {:?}\n",
-                self.uncertainties, self.outline
+                "Research questions: {:?}\nOpen questions: {:?}\nOutline: {:?}\n",
+                self.questions, self.uncertainties, self.outline
             ),
             limit / 4,
         );

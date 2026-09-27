@@ -16,11 +16,13 @@ fn config(script: &str) -> CodexConfig {
         work_root: root,
         sources: None,
         model: None,
+        reasoning_effort: None,
         max_workers: 1,
     }
 }
 fn assignment() -> Assignment {
     Assignment {
+        policy: ResearchPolicy::Staged,
         attachments: Vec::new(),
         deadline_unix_seconds: None,
         trace_context: TraceContext::default(),
@@ -237,4 +239,31 @@ async fn an_expired_absolute_deadline_never_launches_a_worker() {
     ));
     assert!(!directory.join("launches.txt").exists());
     std::fs::remove_dir_all(config.work_root).unwrap();
+}
+
+#[tokio::test]
+async fn writing_source_access_follows_policy_and_remaining_allowance() {
+    for policy in [
+        ResearchPolicy::Staged,
+        ResearchPolicy::EvidenceAccess,
+        ResearchPolicy::Adaptive,
+    ] {
+        for kind in [AssignmentKind::Synthesize, AssignmentKind::Review] {
+            for allowance in [0, 1] {
+                let config = config("codex-success.sh");
+                let runtime = CodexRuntime::new(config.clone()).unwrap();
+                let mut assignment = assignment();
+                assignment.policy = policy;
+                assignment.kind = kind;
+                assignment.remaining_tool_calls = allowance;
+                let result = runtime.execute(assignment, CancellationToken::new()).await;
+                assert_eq!(
+                    result.is_ok(),
+                    policy != ResearchPolicy::Staged && allowance > 0,
+                    "{policy:?} {kind:?} allowance={allowance}: {result:?}"
+                );
+                std::fs::remove_dir_all(config.work_root).unwrap();
+            }
+        }
+    }
 }

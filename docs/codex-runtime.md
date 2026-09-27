@@ -18,6 +18,7 @@ Authenticate a dedicated Codex home using the normal Codex login flow. Configure
 | `DEEPRESEARCH_FILE_ORIGINS` | Optional additional HTTPS origins approved for native file downloads |
 | `DEEPRESEARCH_CODEX_EXECUTABLE` | Optional executable path, default `codex` |
 | `DEEPRESEARCH_MODEL` | Optional model choice, otherwise the Codex default |
+| `DEEPRESEARCH_REASONING_EFFORT` | Optional explicit reasoning setting; pin it for paired evaluation |
 | `DEEPRESEARCH_MAX_WORKERS` | Concurrent worker processes, default `1` |
 
 Then run:
@@ -35,7 +36,10 @@ Codex home; do not bake credentials into an image or copy them into committed ex
 The adapter explicitly enables Codex's `mcp_2026_07_28` feature for the current source protocol.
 It ignores ordinary user configuration and rule files, disables shell tools,
 subagents and built-in web search, and connects to the host-managed [source adapter](source-access.md) during
-investigation. Writing and review use collected evidence without a gateway connection.
+investigation. Under the default `staged` policy, writing and review use collected
+evidence without a gateway connection. Experimental `evidence_access` and `adaptive`
+policies give every assignment source access and a paged index of successfully retained
+material from earlier assignments in the same investigation.
 Use a gateway credential restricted to source operations: never permit administrative
 operations, generic code execution, or recursive research calls in that allowlist.
 Read-only process sandboxing and gateway policy are independent controls.

@@ -12,3 +12,5 @@ pub mod evaluation;
 pub mod files;
 pub mod mcp;
 pub mod walkthrough;
+
+pub mod scoring;

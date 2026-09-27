@@ -97,3 +97,11 @@ admission allowance. Evidence selection must not erase the user's brief.
 
 See the [service guide](service.md) for the supported single-host deployment,
 retention, recovery limits, protocol contract, and isolated integration walkthrough.
+
+## Research policy experiments
+
+The default `staged` policy retains the existing sequence for comparison. Opt-in
+`evidence_access` and `adaptive` policies are described in the
+[scored evaluation guide](scored-evaluation.md). They share the same execution and
+source boundaries. Adaptive investigations keep editable research questions and can
+finish directly; their proposed completion is still subject to external evaluation.

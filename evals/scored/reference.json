@@ -1,0 +1,372 @@
+{
+  "version": 1,
+  "date": "2026-09-27",
+  "scoring": "Each requirement: 0 incorrect/absent, 1 partially correct, 2 fully correct and supported. Report consequential errors separately. An answer is decision-ready only if all requirements score 2 and there are no consequential errors. Grade blind; do not expose this file to researchers.",
+  "cases": [
+    {
+      "id": "sqlite-snapshot",
+      "split": "development",
+      "sources": [
+        "https://www.sqlite.org/isolation.html"
+      ],
+      "criteria": [
+        {
+          "id": "sqlite-snapshot-1",
+          "expected": "A continues seeing its original snapshot, not B's newly committed data."
+        },
+        {
+          "id": "sqlite-snapshot-2",
+          "expected": "Upgrading the stale read transaction to a writer fails with SQLITE_BUSY_SNAPSHOT."
+        },
+        {
+          "id": "sqlite-snapshot-3",
+          "expected": "End/roll back the old transaction and begin a new one before retrying the transaction logic."
+        },
+        {
+          "id": "sqlite-snapshot-4",
+          "expected": "WAL allows concurrent readers and a writer, but only one writer at a time."
+        },
+        {
+          "id": "sqlite-snapshot-5",
+          "expected": "BEGIN IMMEDIATE can acquire write intent before reading to avoid this stale upgrade pattern; it can itself contend with another writer."
+        }
+      ],
+      "objective": "In SQLite WAL mode, connection A starts a read transaction and reads a row. Connection B updates that row and commits. What does A see on its next SELECT, what happens if A now tries to update, and how should the application recover? Explain whether WAL allows simultaneous writers. Cite SQLite documentation. Could choosing BEGIN IMMEDIATE before the read help, and what contention can remain?"
+    },
+    {
+      "id": "asyncio-failure",
+      "split": "development",
+      "sources": [
+        "https://docs.python.org/3.13/library/asyncio-task.html"
+      ],
+      "criteria": [
+        {
+          "id": "asyncio-failure-1",
+          "expected": "Default gather propagates the first exception immediately to its awaiter."
+        },
+        {
+          "id": "asyncio-failure-2",
+          "expected": "Default gather does not cancel remaining children merely because one failed."
+        },
+        {
+          "id": "asyncio-failure-3",
+          "expected": "TaskGroup cancels remaining children after a non-cancellation exception."
+        },
+        {
+          "id": "asyncio-failure-4",
+          "expected": "TaskGroup waits for remaining tasks to finish and raises grouped non-cancellation exceptions on exit."
+        },
+        {
+          "id": "asyncio-failure-5",
+          "expected": "Recommend TaskGroup for this requirement; cancellation is cooperative, not an instantaneous guarantee that external effects stop."
+        }
+      ],
+      "objective": "For Python 3.13, compare asyncio.gather with its default return_exceptions setting and asyncio.TaskGroup when one child raises ValueError while siblings are still running. What happens to siblings, when does the caller regain control, and how are errors delivered? Recommend one for a group where a failed child should stop sibling work. Cite official documentation."
+    },
+    {
+      "id": "http-retry",
+      "split": "development",
+      "sources": [
+        "https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2"
+      ],
+      "criteria": [
+        {
+          "id": "http-retry-1",
+          "expected": "A missing response does not establish that the server did not apply the operation."
+        },
+        {
+          "id": "http-retry-2",
+          "expected": "A client SHOULD NOT automatically retry a non-idempotent request without knowledge that its semantics are idempotent or the original was never applied."
+        },
+        {
+          "id": "http-retry-3",
+          "expected": "PUT is idempotent and can be retried after a communication failure before the response is read."
+        },
+        {
+          "id": "http-retry-4",
+          "expected": "Idempotence concerns the intended server effect of repeated identical requests, not identical responses or absence of logging side effects."
+        },
+        {
+          "id": "http-retry-5",
+          "expected": "Application-level deduplication or knowledge of non-application may justify POST retry; RFC 9110 does not make every POST safe to retry."
+        }
+      ],
+      "objective": "A client sends a POST to create an order and the connection closes before any response arrives. Does RFC 9110 permit blindly retrying it? Contrast PUT and explain what extra knowledge could make a POST retry appropriate. Does idempotent mean every response is identical? Use RFC 9110, especially section 9.2.2."
+    },
+    {
+      "id": "postgres-retry",
+      "split": "held_out",
+      "sources": [
+        "https://www.postgresql.org/docs/17/transaction-iso.html"
+      ],
+      "criteria": [
+        {
+          "id": "postgres-retry-1",
+          "expected": "Successfully committed serializable transactions have an effect equivalent to a serial execution."
+        },
+        {
+          "id": "postgres-retry-2",
+          "expected": "Serializable transactions can fail with serialization failures, SQLSTATE 40001."
+        },
+        {
+          "id": "postgres-retry-3",
+          "expected": "Retry the whole transaction including reads and decisions, not just the failed SQL statement."
+        },
+        {
+          "id": "postgres-retry-4",
+          "expected": "Serializable monitoring does not introduce blocking beyond repeatable read, though normal database locks can still block."
+        },
+        {
+          "id": "postgres-retry-5",
+          "expected": "Applications must handle retries and their overhead; serializable does not promise every concurrent attempt commits."
+        }
+      ],
+      "objective": "In PostgreSQL 17, does SERIALIZABLE isolation mean concurrent transactions cannot fail or that execution is globally serialized by blocking? Explain SQLSTATE 40001 and the correct retry boundary when earlier reads influenced an update. Ground the answer in PostgreSQL documentation."
+    },
+    {
+      "id": "storm-transfer",
+      "split": "development",
+      "sources": [
+        "https://arxiv.org/html/2402.14207v2"
+      ],
+      "criteria": [
+        {
+          "id": "storm-transfer-1",
+          "expected": "STORM uses perspective-guided questioning and grounded simulated conversations before outlining/writing."
+        },
+        {
+          "id": "storm-transfer-2",
+          "expected": "Reading retrieved information influences follow-up questions."
+        },
+        {
+          "id": "storm-transfer-3",
+          "expected": "The ablations remove perspective and conversation components while controlling question count."
+        },
+        {
+          "id": "storm-transfer-4",
+          "expected": "Reported outline/coverage and article results concern Wikipedia-like writing, not universal modern-agent superiority."
+        },
+        {
+          "id": "storm-transfer-5",
+          "expected": "Recommend testing transferable question-discovery mechanisms; do not claim the study proves a fixed persona ensemble is necessary for all tasks."
+        }
+      ],
+      "objective": "Assess what STORM (arXiv:2402.14207v2) establishes about improving research before writing. Explain its mechanisms, what its ablations isolate, and whether the paper justifies adding a fixed panel of personas to every modern research task. Include the limits of the evidence, not just the architecture."
+    },
+    {
+      "id": "webweaver-memory",
+      "split": "development",
+      "sources": [
+        "https://arxiv.org/html/2509.13312v3"
+      ],
+      "criteria": [
+        {
+          "id": "webweaver-memory-1",
+          "expected": "Dynamic outline evolves alongside evidence collection."
+        },
+        {
+          "id": "webweaver-memory-2",
+          "expected": "Compact planning memory and detailed evidence memory serve different purposes."
+        },
+        {
+          "id": "webweaver-memory-3",
+          "expected": "Hierarchical/sequential writing retrieves evidence relevant to sections rather than relying only on investigator summaries."
+        },
+        {
+          "id": "webweaver-memory-4",
+          "expected": "The paper compares hierarchical writing against a multistep whole-memory baseline and reports better writing/citation metrics; identify actual comparator rather than attributing all gains to memory alone."
+        },
+        {
+          "id": "webweaver-memory-5",
+          "expected": "Long-report retrieval/output costs and the experimental setting limit claims about short answers or equal-cost universal superiority."
+        }
+      ],
+      "objective": "Use WebWeaver (arXiv:2509.13312v3) to assess this design: investigators give a final writer only short summaries and the writer cannot reopen sources. Explain the alternative memory/writing arrangement, the relevant ablation evidence, and which costs or limitations prevent treating it as the default for every short answer."
+    },
+    {
+      "id": "ttd-transfer",
+      "split": "development",
+      "sources": [
+        "https://arxiv.org/html/2507.16075v1"
+      ],
+      "criteria": [
+        {
+          "id": "ttd-transfer-1",
+          "expected": "The evolving draft guides retrieval and evidence-based refinement, not merely stylistic rewriting."
+        },
+        {
+          "id": "ttd-transfer-2",
+          "expected": "Component self-evolution includes candidate generation/refinement and is distinct from report-level diffusion with retrieval."
+        },
+        {
+          "id": "ttd-transfer-3",
+          "expected": "Ablations add self-evolution and diffusion/retrieval to a backbone; do not present their gains as a test of exactly two mandatory critic passes."
+        },
+        {
+          "id": "ttd-transfer-4",
+          "expected": "Reported preference/win rates are not absolute factual accuracy and additional compute matters."
+        },
+        {
+          "id": "ttd-transfer-5",
+          "expected": "A defensible adaptation targets missing evidence or premises and permits stopping without unnecessary rewrites; early-draft anchoring remains a risk."
+        }
+      ],
+      "objective": "A team proposes requiring two critic-and-rewrite passes after every research answer, citing TTD-DR (arXiv:2507.16075v1). Does the paper support that particular design? Explain what its iterations actually do, what the component ablations measure, and a defensible adaptation for a subscription-budget research agent."
+    },
+    {
+      "id": "iterresearch-transfer",
+      "split": "held_out",
+      "sources": [
+        "https://arxiv.org/html/2511.07327v2"
+      ],
+      "criteria": [
+        {
+          "id": "iterresearch-transfer-1",
+          "expected": "Workspace reconstruction preserves an evolving report/research memory while bounding active context."
+        },
+        {
+          "id": "iterresearch-transfer-2",
+          "expected": "Training, including reinforcement learning, is part of the evaluated system."
+        },
+        {
+          "id": "iterresearch-transfer-3",
+          "expected": "Interaction scaling increases research turns/budget and is not free."
+        },
+        {
+          "id": "iterresearch-transfer-4",
+          "expected": "Answer-finding benchmark gains do not prove improved report quality for an unchanged Codex model."
+        },
+        {
+          "id": "iterresearch-transfer-5",
+          "expected": "Test selective context reconstruction with preserved sources/questions against the same-model baseline; do not recommend arbitrary restart without retained evidence."
+        }
+      ],
+      "objective": "Assess whether IterResearch (arXiv:2511.07327v2) proves that periodically restarting an unchanged Codex agent will improve our reports. Distinguish workspace reconstruction, model training, and test-time interaction scaling, and explain what we could adopt and what we would need to test."
+    },
+    {
+      "id": "benchmark-selection",
+      "split": "development",
+      "sources": [
+        "https://arxiv.org/abs/2504.12516",
+        "https://arxiv.org/abs/2508.07999",
+        "https://arxiv.org/abs/2601.08536",
+        "https://arxiv.org/abs/2511.07685"
+      ],
+      "criteria": [
+        {
+          "id": "benchmark-selection-1",
+          "expected": "BrowseComp evaluates difficult web answer finding, not comprehensive long-form report quality."
+        },
+        {
+          "id": "benchmark-selection-2",
+          "expected": "WideSearch evaluates broad information collection with many required facts, exposing completeness failures."
+        },
+        {
+          "id": "benchmark-selection-3",
+          "expected": "DeepResearch Bench II evaluates reports using expert-derived fine-grained requirements including information, analysis, and presentation."
+        },
+        {
+          "id": "benchmark-selection-4",
+          "expected": "ResearchRubrics uses expert criteria for research tasks rather than exact short-answer accuracy alone."
+        },
+        {
+          "id": "benchmark-selection-5",
+          "expected": "All four have distinct rows and limits; recommend report rubrics plus collection evaluation instead of claiming one score measures everything."
+        }
+      ],
+      "objective": "Compare BrowseComp, WideSearch, DeepResearch Bench II, and ResearchRubrics in a table. For each identify the task, what success measures, and one important capability it does not establish. Recommend which combination evaluates both a research report and broad information collection. Use the papers; do not quote a leaderboard as proof of architecture quality."
+    },
+    {
+      "id": "asteroid-returns",
+      "split": "development",
+      "sources": [
+        "https://science.nasa.gov/mission/hayabusa/",
+        "https://science.nasa.gov/mission/hayabusa-2/",
+        "https://science.nasa.gov/mission/osiris-rex/"
+      ],
+      "criteria": [
+        {
+          "id": "asteroid-returns-1",
+          "expected": "Hayabusa: JAXA/Japan, Itokawa, 13 June 2010."
+        },
+        {
+          "id": "asteroid-returns-2",
+          "expected": "Hayabusa2: JAXA/Japan, Ryugu, 6 December 2020 (accept explicitly identified UTC 5 December date)."
+        },
+        {
+          "id": "asteroid-returns-3",
+          "expected": "OSIRIS-REx: NASA/United States, Bennu, 24 September 2023."
+        },
+        {
+          "id": "asteroid-returns-4",
+          "expected": "Exclude OSIRIS-APEX as a separate successful return by cutoff and exclude comet returns from asteroid scope."
+        },
+        {
+          "id": "asteroid-returns-5",
+          "expected": "Describe return capsules, not an assertion that all three parent spacecraft landed on Earth; avoid duplicate missions."
+        }
+      ],
+      "objective": "Identify the missions that successfully delivered asteroid samples to Earth by 31 December 2023. Give mission, responsible agency, asteroid, and Earth return date in a table. Explain whether OSIRIS-APEX or a comet sample-return mission belongs in this list. Use NASA or JAXA sources and distinguish capsule return from returning the whole spacecraft."
+    },
+    {
+      "id": "voyager-boundaries",
+      "split": "held_out",
+      "sources": [
+        "https://science.nasa.gov/mission/voyager/interstellar-mission/"
+      ],
+      "criteria": [
+        {
+          "id": "voyager-boundaries-1",
+          "expected": "Voyager 1 visited Jupiter/Saturn; Voyager 2 additionally Uranus/Neptune."
+        },
+        {
+          "id": "voyager-boundaries-2",
+          "expected": "Termination shock: Voyager 1 December 2004 about 94 AU; Voyager 2 August 2007 about 84 AU."
+        },
+        {
+          "id": "voyager-boundaries-3",
+          "expected": "Heliopause: Voyager 1 25 August 2012; Voyager 2 5 November 2018."
+        },
+        {
+          "id": "voyager-boundaries-4",
+          "expected": "Termination shock slows solar wind to subsonic; heliopause is the heliosphere/interstellar boundary, not the same crossing."
+        },
+        {
+          "id": "voyager-boundaries-5",
+          "expected": "Voyager 1 plasma instrument had failed; plasma-wave density evidence helped confirm later. Voyager 2 had operating plasma science measurements at its crossing."
+        }
+      ],
+      "objective": "Compare Voyager 1 and Voyager 2 in a table: planets visited, termination-shock crossing month/year and approximate distance, and heliopause crossing date. Explain why these boundaries are different and how confirmation of Voyager 1 entering interstellar space differed from Voyager 2. Use NASA primary sources; avoid treating a boundary crossing and its later confirmation as the same date."
+    },
+    {
+      "id": "isolation-matrix",
+      "split": "held_out",
+      "sources": [
+        "https://www.postgresql.org/docs/17/transaction-iso.html"
+      ],
+      "criteria": [
+        {
+          "id": "isolation-matrix-1",
+          "expected": "PostgreSQL Read Uncommitted behaves as Read Committed and does not permit dirty reads."
+        },
+        {
+          "id": "isolation-matrix-2",
+          "expected": "Read Committed can have nonrepeatable reads, phantom reads, and serialization anomalies."
+        },
+        {
+          "id": "isolation-matrix-3",
+          "expected": "PostgreSQL Repeatable Read prevents nonrepeatable and phantom reads but allows serialization anomalies."
+        },
+        {
+          "id": "isolation-matrix-4",
+          "expected": "Serializable prevents these anomalies for committed transactions; do not claim it cannot abort."
+        },
+        {
+          "id": "isolation-matrix-5",
+          "expected": "Repeatable Read and Serializable may require whole-transaction retries; PostgreSQL Repeatable Read is stronger on phantoms than the standard minimum."
+        }
+      ],
+      "objective": "For PostgreSQL 17, compare Read Uncommitted, Read Committed, Repeatable Read, and Serializable in a table covering dirty reads, nonrepeatable reads, phantom reads, and serialization anomalies. Highlight where PostgreSQL differs from SQL-standard minimum guarantees. Explain which levels can require whole-transaction retries. Use official documentation."
+    }
+  ]
+}

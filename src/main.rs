@@ -10,6 +10,35 @@ use tokio_util::sync::CancellationToken;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().collect();
+    if args.len() == 5 && args[1] == "judge" {
+        let output = std::path::Path::new(&args[4]);
+        let runtime = CodexRuntime::from_environment(output.join("workers"))?;
+        let cancel = CancellationToken::new();
+        let stop = cancel.clone();
+        let signal = tokio::spawn(async move {
+            if tokio::signal::ctrl_c().await.is_ok() {
+                stop.cancel();
+            }
+        });
+        let result = mcp_deepresearch::scoring::judge(
+            &runtime,
+            std::path::Path::new(&args[2]),
+            std::path::Path::new(&args[3]),
+            output,
+            cancel,
+        )
+        .await;
+        signal.abort();
+        return result;
+    }
+    if args.len() == 6 && args[1] == "score" {
+        return mcp_deepresearch::scoring::run(
+            std::path::Path::new(&args[2]),
+            std::path::Path::new(&args[3]),
+            std::path::Path::new(&args[4]),
+            std::path::Path::new(&args[5]),
+        );
+    }
     if (args.len() == 4 || args.len() == 5) && args[1] == "walkthrough" {
         return mcp_deepresearch::walkthrough::run(
             std::path::Path::new(&args[2]),
@@ -60,7 +89,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if args.len() != 4 || !matches!(args[1].as_str(), "fixture" | "live") {
         eprintln!(
-            "Usage: mcp-deepresearch <fixture|live> <request.json> <workspace-directory>; serve <fixture|live> <workspace-directory>; evaluate <fixture|live> <cases.json> <output-directory>; walkthrough <request.json> <output-directory> [text-attachment]"
+            "Usage: mcp-deepresearch score <reference.json> <evaluation.json> <judgments.json> <scores.json>; <fixture|live> <request.json> <workspace-directory>; serve <fixture|live> <workspace-directory>; evaluate <fixture|live> <cases.json> <output-directory>; walkthrough <request.json> <output-directory> [text-attachment]"
         );
         std::process::exit(2);
     }

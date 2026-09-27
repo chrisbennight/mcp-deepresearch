@@ -1,0 +1,230 @@
+[
+  {
+    "id": "sqlite-snapshot",
+    "request": {
+      "objective": "In SQLite WAL mode, connection A starts a read transaction and reads a row. Connection B updates that row and commits. What does A see on its next SELECT, what happens if A now tries to update, and how should the application recover? Explain whether WAL allows simultaneous writers. Cite SQLite documentation. Could choosing BEGIN IMMEDIATE before the read help, and what contention can remain?",
+      "strategy": "focused",
+      "format": "answer",
+      "source_constraints": [
+        "Use primary sources and cite the evidence. State material limits. Research as of 27 September 2026; respect any earlier cutoff or version in the question."
+      ],
+      "limits": {
+        "wall_seconds": 300,
+        "max_assignments": 6,
+        "max_tool_calls": 24
+      }
+    },
+    "assess": [
+      "Correct and complete against the separately held reference requirements."
+    ]
+  },
+  {
+    "id": "asyncio-failure",
+    "request": {
+      "objective": "For Python 3.13, compare asyncio.gather with its default return_exceptions setting and asyncio.TaskGroup when one child raises ValueError while siblings are still running. What happens to siblings, when does the caller regain control, and how are errors delivered? Recommend one for a group where a failed child should stop sibling work. Cite official documentation.",
+      "strategy": "focused",
+      "format": "answer",
+      "source_constraints": [
+        "Use primary sources and cite the evidence. State material limits. Research as of 27 September 2026; respect any earlier cutoff or version in the question."
+      ],
+      "limits": {
+        "wall_seconds": 300,
+        "max_assignments": 6,
+        "max_tool_calls": 24
+      }
+    },
+    "assess": [
+      "Correct and complete against the separately held reference requirements."
+    ]
+  },
+  {
+    "id": "http-retry",
+    "request": {
+      "objective": "A client sends a POST to create an order and the connection closes before any response arrives. Does RFC 9110 permit blindly retrying it? Contrast PUT and explain what extra knowledge could make a POST retry appropriate. Does idempotent mean every response is identical? Use RFC 9110, especially section 9.2.2.",
+      "strategy": "focused",
+      "format": "answer",
+      "source_constraints": [
+        "Use primary sources and cite the evidence. State material limits. Research as of 27 September 2026; respect any earlier cutoff or version in the question."
+      ],
+      "limits": {
+        "wall_seconds": 300,
+        "max_assignments": 6,
+        "max_tool_calls": 24
+      }
+    },
+    "assess": [
+      "Correct and complete against the separately held reference requirements."
+    ]
+  },
+  {
+    "id": "postgres-retry",
+    "request": {
+      "objective": "In PostgreSQL 17, does SERIALIZABLE isolation mean concurrent transactions cannot fail or that execution is globally serialized by blocking? Explain SQLSTATE 40001 and the correct retry boundary when earlier reads influenced an update. Ground the answer in PostgreSQL documentation.",
+      "strategy": "focused",
+      "format": "answer",
+      "source_constraints": [
+        "Use primary sources and cite the evidence. State material limits. Research as of 27 September 2026; respect any earlier cutoff or version in the question."
+      ],
+      "limits": {
+        "wall_seconds": 300,
+        "max_assignments": 6,
+        "max_tool_calls": 24
+      }
+    },
+    "assess": [
+      "Correct and complete against the separately held reference requirements."
+    ]
+  },
+  {
+    "id": "storm-transfer",
+    "request": {
+      "objective": "Assess what STORM (arXiv:2402.14207v2) establishes about improving research before writing. Explain its mechanisms, what its ablations isolate, and whether the paper justifies adding a fixed panel of personas to every modern research task. Include the limits of the evidence, not just the architecture.",
+      "strategy": "exploration",
+      "format": "report",
+      "source_constraints": [
+        "Use primary sources and cite the evidence. State material limits. Research as of 27 September 2026; respect any earlier cutoff or version in the question."
+      ],
+      "limits": {
+        "wall_seconds": 300,
+        "max_assignments": 6,
+        "max_tool_calls": 24
+      }
+    },
+    "assess": [
+      "Correct and complete against the separately held reference requirements."
+    ]
+  },
+  {
+    "id": "webweaver-memory",
+    "request": {
+      "objective": "Use WebWeaver (arXiv:2509.13312v3) to assess this design: investigators give a final writer only short summaries and the writer cannot reopen sources. Explain the alternative memory/writing arrangement, the relevant ablation evidence, and which costs or limitations prevent treating it as the default for every short answer.",
+      "strategy": "exploration",
+      "format": "report",
+      "source_constraints": [
+        "Use primary sources and cite the evidence. State material limits. Research as of 27 September 2026; respect any earlier cutoff or version in the question."
+      ],
+      "limits": {
+        "wall_seconds": 300,
+        "max_assignments": 6,
+        "max_tool_calls": 24
+      }
+    },
+    "assess": [
+      "Correct and complete against the separately held reference requirements."
+    ]
+  },
+  {
+    "id": "ttd-transfer",
+    "request": {
+      "objective": "A team proposes requiring two critic-and-rewrite passes after every research answer, citing TTD-DR (arXiv:2507.16075v1). Does the paper support that particular design? Explain what its iterations actually do, what the component ablations measure, and a defensible adaptation for a subscription-budget research agent.",
+      "strategy": "comparison",
+      "format": "report",
+      "source_constraints": [
+        "Use primary sources and cite the evidence. State material limits. Research as of 27 September 2026; respect any earlier cutoff or version in the question."
+      ],
+      "limits": {
+        "wall_seconds": 300,
+        "max_assignments": 6,
+        "max_tool_calls": 24
+      }
+    },
+    "assess": [
+      "Correct and complete against the separately held reference requirements."
+    ]
+  },
+  {
+    "id": "iterresearch-transfer",
+    "request": {
+      "objective": "Assess whether IterResearch (arXiv:2511.07327v2) proves that periodically restarting an unchanged Codex agent will improve our reports. Distinguish workspace reconstruction, model training, and test-time interaction scaling, and explain what we could adopt and what we would need to test.",
+      "strategy": "comparison",
+      "format": "report",
+      "source_constraints": [
+        "Use primary sources and cite the evidence. State material limits. Research as of 27 September 2026; respect any earlier cutoff or version in the question."
+      ],
+      "limits": {
+        "wall_seconds": 300,
+        "max_assignments": 6,
+        "max_tool_calls": 24
+      }
+    },
+    "assess": [
+      "Correct and complete against the separately held reference requirements."
+    ]
+  },
+  {
+    "id": "benchmark-selection",
+    "request": {
+      "objective": "Compare BrowseComp, WideSearch, DeepResearch Bench II, and ResearchRubrics in a table. For each identify the task, what success measures, and one important capability it does not establish. Recommend which combination evaluates both a research report and broad information collection. Use the papers; do not quote a leaderboard as proof of architecture quality.",
+      "strategy": "collection",
+      "format": "table",
+      "source_constraints": [
+        "Use primary sources and cite the evidence. State material limits. Research as of 27 September 2026; respect any earlier cutoff or version in the question."
+      ],
+      "limits": {
+        "wall_seconds": 300,
+        "max_assignments": 6,
+        "max_tool_calls": 24
+      }
+    },
+    "assess": [
+      "Correct and complete against the separately held reference requirements."
+    ]
+  },
+  {
+    "id": "asteroid-returns",
+    "request": {
+      "objective": "Identify the missions that successfully delivered asteroid samples to Earth by 31 December 2023. Give mission, responsible agency, asteroid, and Earth return date in a table. Explain whether OSIRIS-APEX or a comet sample-return mission belongs in this list. Use NASA or JAXA sources and distinguish capsule return from returning the whole spacecraft.",
+      "strategy": "collection",
+      "format": "table",
+      "source_constraints": [
+        "Use primary sources and cite the evidence. State material limits. Research as of 27 September 2026; respect any earlier cutoff or version in the question."
+      ],
+      "limits": {
+        "wall_seconds": 300,
+        "max_assignments": 6,
+        "max_tool_calls": 24
+      }
+    },
+    "assess": [
+      "Correct and complete against the separately held reference requirements."
+    ]
+  },
+  {
+    "id": "voyager-boundaries",
+    "request": {
+      "objective": "Compare Voyager 1 and Voyager 2 in a table: planets visited, termination-shock crossing month/year and approximate distance, and heliopause crossing date. Explain why these boundaries are different and how confirmation of Voyager 1 entering interstellar space differed from Voyager 2. Use NASA primary sources; avoid treating a boundary crossing and its later confirmation as the same date.",
+      "strategy": "collection",
+      "format": "table",
+      "source_constraints": [
+        "Use primary sources and cite the evidence. State material limits. Research as of 27 September 2026; respect any earlier cutoff or version in the question."
+      ],
+      "limits": {
+        "wall_seconds": 300,
+        "max_assignments": 6,
+        "max_tool_calls": 24
+      }
+    },
+    "assess": [
+      "Correct and complete against the separately held reference requirements."
+    ]
+  },
+  {
+    "id": "isolation-matrix",
+    "request": {
+      "objective": "For PostgreSQL 17, compare Read Uncommitted, Read Committed, Repeatable Read, and Serializable in a table covering dirty reads, nonrepeatable reads, phantom reads, and serialization anomalies. Highlight where PostgreSQL differs from SQL-standard minimum guarantees. Explain which levels can require whole-transaction retries. Use official documentation.",
+      "strategy": "collection",
+      "format": "table",
+      "source_constraints": [
+        "Use primary sources and cite the evidence. State material limits. Research as of 27 September 2026; respect any earlier cutoff or version in the question."
+      ],
+      "limits": {
+        "wall_seconds": 300,
+        "max_assignments": 6,
+        "max_tool_calls": 24
+      }
+    },
+    "assess": [
+      "Correct and complete against the separately held reference requirements."
+    ]
+  }
+]

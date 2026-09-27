@@ -187,7 +187,7 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
             tools: vec!["search".into(), "read".into()],
             file_origins: vec![],
         },
-        6,
+        7,
         stop.clone(),
         directory.clone(),
     )
@@ -214,12 +214,28 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
             .all(|tool| tool.annotations.as_ref().and_then(|a| a.read_only_hint) == Some(true))
     );
     let names: Vec<_> = advertised.into_iter().map(|t| t.name.to_string()).collect();
-    assert_eq!(names, vec!["search", "read", "read_source_material"]);
+    assert_eq!(
+        names,
+        vec![
+            "search",
+            "read",
+            "read_source_material",
+            "list_source_materials"
+        ]
+    );
     assert!(
         client
             .call_tool(CallToolRequestParams::new("admin"))
             .await
             .is_err()
+    );
+    let inventory = client
+        .call_tool(CallToolRequestParams::new("list_source_materials"))
+        .await
+        .unwrap();
+    assert_eq!(
+        inventory.structured_content.unwrap()["materials"][0]["material_id"],
+        "attachment-fixture"
     );
     let attachment = client
         .call_tool(
@@ -306,12 +322,100 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
         )
         .await
         .unwrap();
+    let nested = nested.structured_content.unwrap();
     assert!(
-        nested.structured_content.unwrap()["delivery_limitations"][0]
+        nested["delivery_limitations"][0]
             .as_str()
             .unwrap()
             .contains("not downloaded")
     );
+    let material_id = pending["material_id"].as_str().unwrap();
+    let nested_id = nested["material_id"].as_str().unwrap();
+    let reopened = AssignmentSources::start(
+        SourceConfig {
+            local_materials: vec![
+                (
+                    material_id.into(),
+                    directory.join(format!("{material_id}.txt")),
+                ),
+                (nested_id.into(), directory.join(format!("{nested_id}.txt"))),
+            ],
+            trace_context: mcp_deepresearch::research::TraceContext::default(),
+            endpoint: format!("{origin}/mcp"),
+            token: None,
+            tools: vec!["search".into(), "read".into()],
+            file_origins: vec![],
+        },
+        3,
+        stop.clone(),
+        directory.join("next-assignment"),
+    )
+    .await
+    .unwrap();
+    let reopened_client = ()
+        .serve_with_lifecycle(
+            StreamableHttpClientTransport::with_client(
+                reqwest::Client::new(),
+                StreamableHttpClientTransportConfig::with_uri(reopened.endpoint.clone())
+                    .auth_header(reopened.token.clone()),
+            ),
+            ClientLifecycleMode::Discover {
+                preferred_versions: vec![ProtocolVersion::V_2026_07_28],
+            },
+        )
+        .await
+        .unwrap();
+    for offset in [0, 17] {
+        let result = reopened_client
+            .call_tool(
+                CallToolRequestParams::new("read_source_material").with_arguments(
+                    json!({"material_id": material_id, "offset": offset})
+                        .as_object()
+                        .unwrap()
+                        .clone(),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_ne!(result.is_error, Some(true), "{result:?}");
+        assert_eq!(
+            result.structured_content.unwrap()["text"].as_str().unwrap(),
+            recovered["text"]
+                .as_str()
+                .unwrap()
+                .chars()
+                .skip(offset)
+                .collect::<String>()
+        );
+    }
+    let reread = reopened_client
+        .call_tool(
+            CallToolRequestParams::new("read_source_material").with_arguments(
+                json!({"material_id": nested_id, "offset": 17})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await
+        .unwrap();
+    let reread = reread.structured_content.unwrap();
+    assert_eq!(
+        reread["delivery_limitations"],
+        nested["delivery_limitations"]
+    );
+    assert_eq!(
+        reread["text"].as_str().unwrap(),
+        nested["text"]
+            .as_str()
+            .unwrap()
+            .chars()
+            .skip(17)
+            .collect::<String>()
+    );
+    reopened_client.cancel().await.unwrap();
+    drop(reopened);
+
     let exhausted = client
         .call_tool(CallToolRequestParams::new("search"))
         .await

@@ -20,7 +20,7 @@ pub struct Case {
     pub request: ResearchRequest,
     pub assess: Vec<String>,
 }
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Measurement {
     pub case: String,
     pub outcome: String,
@@ -35,8 +35,10 @@ pub struct Measurement {
     pub quality_score: Option<f64>,
     pub assess: Vec<String>,
 }
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Evaluation {
+    #[serde(default)]
+    pub reasoning_effort: Option<String>,
     pub mode: String,
     pub model: String,
     pub source_tools: Vec<String>,
@@ -107,19 +109,28 @@ pub async fn compare<R: AgentRuntime>(
             );
         }
         // Alternate the order to reduce systematic first-run/cache bias.
+        let policy_arm = match case.request.policy {
+            ResearchPolicy::Staged => "structured",
+            ResearchPolicy::EvidenceAccess => "evidence_access",
+            ResearchPolicy::Adaptive => "adaptive",
+        };
         let arms = if index % 2 == 0 {
-            ["structured", "single_session"]
+            [policy_arm, "single_session"]
         } else {
-            ["single_session", "structured"]
+            ["single_session", policy_arm]
         };
         for arm in arms {
             let observed = Observed::new(runtime);
-            let workspace = Workspace::new("evaluation".into(), case.request.clone())?;
+            let mut request = case.request.clone();
+            if arm == "single_session" {
+                request.policy = ResearchPolicy::Staged;
+            }
+            let workspace = Workspace::new("evaluation".into(), request)?;
             let mut controller = Controller::new(workspace, runtime::unix_seconds());
             let started = Instant::now();
             if cancel.is_cancelled() {
                 controller.workspace.status = Status::Cancelled;
-            } else if arm == "structured" {
+            } else if arm != "single_session" {
                 runtime::run(&observed, &mut controller, cancel.clone()).await;
             } else {
                 let mut assignment = controller
@@ -144,7 +155,7 @@ pub async fn compare<R: AgentRuntime>(
                             }
                             Ok(NextAction::Investigate { .. } | NextAction::Synthesize) => {
                                 controller.workspace.status = Status::Exhausted {
-                                    reason: "single-session baseline requested further work".into(),
+                                    reason: "agent requested further work".into(),
                                 };
                             }
                             Ok(NextAction::Finish) if complete => {
@@ -152,8 +163,7 @@ pub async fn compare<R: AgentRuntime>(
                             }
                             Ok(NextAction::Finish) => {
                                 controller.workspace.status = Status::Failed {
-                                    reason: "single-session baseline returned no final answer"
-                                        .into(),
+                                    reason: "agent returned no final answer".into(),
                                 }
                             }
                         }
@@ -200,7 +210,7 @@ pub async fn compare<R: AgentRuntime>(
             });
         }
     }
-    let result=Evaluation {mode:mode.into(),model:std::env::var("DEEPRESEARCH_MODEL").unwrap_or_else(|_|"runtime default (record the resolved model for a publishable comparison)".into()),source_tools:std::env::var("DEEPRESEARCH_SOURCE_TOOLS").unwrap_or_default().split(',').filter(|s|!s.is_empty()).map(str::to_owned).collect(),note:"Quality and monetary cost are unscored. Fixture outputs establish only execution. Compare the saved answers blind using the case rubric; failures, input-required runs, and cancellation are not successful answers. Both arms use the same runtime, source tools and per-case wall/tool limits; structured work additionally has its assignment cap. Model context and provider-side caching may differ.".into(),measurements};
+    let result=Evaluation {reasoning_effort:std::env::var("DEEPRESEARCH_REASONING_EFFORT").ok(),mode:mode.into(),model:std::env::var("DEEPRESEARCH_MODEL").unwrap_or_else(|_|"runtime default (record the resolved model for a publishable comparison)".into()),source_tools:std::env::var("DEEPRESEARCH_SOURCE_TOOLS").unwrap_or_default().split(',').filter(|s|!s.is_empty()).map(str::to_owned).collect(),note:"Quality and monetary cost are unscored. Fixture outputs establish only execution. Compare the saved answers blind using the case rubric; failures, input-required runs, and cancellation are not successful answers. Both arms use the same runtime, source tools and per-case wall/tool limits; structured work additionally has its assignment cap. Model context and provider-side caching may differ.".into(),measurements};
     tokio::fs::write(
         root.join("evaluation.json"),
         serde_json::to_vec_pretty(&result)?,
