@@ -21,8 +21,12 @@ configured gateway's discovery. Select Kagi search and extraction tools initiall
 other read tools can use the same interface. Tool arguments and descriptions come
 from the gateway rather than an application-specific copy of a provider's schema.
 
-Only explicitly selected tools declaring read-only behavior are admitted. The
-credential must also be restricted by gateway policy to these source operations.
+Only explicitly selected source tools are admitted. Operators select read-only
+operations and restrict the credential to them through gateway policy. The optional
+MCP read-only hint may be absent (as it is for Kagi); an explicit writable hint is
+rejected. The assignment proxy publishes a read-only hint for its selected source
+tools so workers can classify them without interactive approval. This describes the
+operator-authorized source contract; annotation hints do not grant authority.
 Do not select administration, general code execution, or recursive research tools.
 The local allowlist is an additional boundary, not a replacement for gateway policy.
 

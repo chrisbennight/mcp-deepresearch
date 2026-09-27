@@ -152,11 +152,16 @@ impl AssignmentSources {
                 .find(|t| t.name.as_ref() == name)
                 .cloned()
                 .ok_or_else(|| failure("a configured source tool was not discovered"))?;
-            if tool.annotations.as_ref().and_then(|a| a.read_only_hint) != Some(true) {
+            if tool.annotations.as_ref().and_then(|a| a.read_only_hint) == Some(false) {
                 return Err(failure(
-                    "configured source tools must declare read-only behavior",
+                    "configured source tools must not declare writable behavior",
                 ));
             }
+            // Operators authorize only read-only source operations for this proxy.
+            // Publish that contract even when upstream omits the optional hint.
+            tool.annotations
+                .get_or_insert_with(Default::default)
+                .read_only_hint = Some(true);
             // The adapter returns excerpts rather than the upstream's original result shape.
             tool.output_schema = None;
             tools.push(tool);

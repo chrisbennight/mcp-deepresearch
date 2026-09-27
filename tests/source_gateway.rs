@@ -41,7 +41,13 @@ impl ServerHandler for Gateway {
             started.notify_one();
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
         }
-        let tools = ["search", "read", "admin"].map(|name| serde_json::from_value(json!({"name":name,"inputSchema":{"type":"object"},"annotations":{"readOnlyHint":name!="admin","destructiveHint":false,"idempotentHint":true,"openWorldHint":true}})).unwrap());
+        let tools = ["search", "read", "admin"].map(|name| {
+            let mut tool = json!({"name":name,"inputSchema":{"type":"object"}});
+            if name != "search" {
+                tool["annotations"] = json!({"readOnlyHint":name!="admin","destructiveHint":false,"idempotentHint":true,"openWorldHint":true});
+            }
+            serde_json::from_value(tool).unwrap()
+        });
         Ok(ListToolsResult::with_all_items(tools.into()))
     }
     async fn call_tool(
@@ -155,6 +161,23 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
     )
     .unwrap();
     let server = tokio::spawn(axum::serve(listener, router).into_future());
+    let writable = AssignmentSources::start(
+        SourceConfig {
+            local_materials: Vec::new(),
+            trace_context: mcp_deepresearch::research::TraceContext::default(),
+            endpoint: format!("{origin}/mcp"),
+            token: None,
+            tools: vec!["admin".into()],
+            file_origins: vec![],
+        },
+        1,
+        stop.child_token(),
+        directory.clone(),
+    )
+    .await;
+    assert!(
+        matches!(writable, Err(mcp_deepresearch::runtime::RuntimeError::Failed(reason)) if reason.contains("writable behavior"))
+    );
     let source = AssignmentSources::start(
         SourceConfig {
             local_materials: vec![("attachment-fixture".into(), attachment_path)],
@@ -184,13 +207,13 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
         )
         .await
         .unwrap();
-    let names: Vec<_> = client
-        .list_all_tools()
-        .await
-        .unwrap()
-        .into_iter()
-        .map(|t| t.name.to_string())
-        .collect();
+    let advertised = client.list_all_tools().await.unwrap();
+    assert!(
+        advertised
+            .iter()
+            .all(|tool| tool.annotations.as_ref().and_then(|a| a.read_only_hint) == Some(true))
+    );
+    let names: Vec<_> = advertised.into_iter().map(|t| t.name.to_string()).collect();
     assert_eq!(names, vec!["search", "read", "read_source_material"]);
     assert!(
         client
