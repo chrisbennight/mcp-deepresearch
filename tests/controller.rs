@@ -195,30 +195,32 @@ impl AgentRuntime for CompleteInvestigation {
 
 #[tokio::test]
 async fn adaptive_research_can_deliver_a_supported_answer_without_forced_rewriting() {
-    let mut control = controller(Strategy::Comparison);
-    control.workspace.request.policy = ResearchPolicy::Adaptive;
-    control.workspace.draft = "Earlier answer awaiting revision".into();
-    runtime::run(
-        &CompleteInvestigation,
-        &mut control,
-        CancellationToken::new(),
-    )
-    .await;
-    assert_eq!(control.workspace.status, Status::Completed);
-    assert_eq!(control.workspace.assignments_completed, 1);
-    assert!(
-        !control
-            .workspace
-            .draft
-            .contains("Earlier answer awaiting revision")
-    );
-    assert!(control.workspace.report().contains("[S1]"));
-    assert!(
-        control
-            .workspace
-            .context("recovery")
-            .contains("What survives restart?")
-    );
+    for policy in [ResearchPolicy::Adaptive, ResearchPolicy::Perspective] {
+        let mut control = controller(Strategy::Comparison);
+        control.workspace.request.policy = policy;
+        control.workspace.draft = "Earlier answer awaiting revision".into();
+        runtime::run(
+            &CompleteInvestigation,
+            &mut control,
+            CancellationToken::new(),
+        )
+        .await;
+        assert_eq!(control.workspace.status, Status::Completed);
+        assert_eq!(control.workspace.assignments_completed, 1);
+        assert!(
+            !control
+                .workspace
+                .draft
+                .contains("Earlier answer awaiting revision")
+        );
+        assert!(control.workspace.report().contains("[S1]"));
+        assert!(
+            control
+                .workspace
+                .context("recovery")
+                .contains("What survives restart?")
+        );
+    }
 }
 
 #[tokio::test]
@@ -227,6 +229,7 @@ async fn focused_followup_preserves_the_working_answer_when_time_runs_out() {
         ResearchPolicy::Staged,
         ResearchPolicy::EvidenceAccess,
         ResearchPolicy::Adaptive,
+        ResearchPolicy::Perspective,
     ] {
         let mut control = controller(Strategy::Collection);
         control.workspace.request.policy = policy;

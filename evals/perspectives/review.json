@@ -1,0 +1,461 @@
+{
+  "method": "Fresh-context sub-agent; anonymized answer assessment before reference scoring; policy and timing withheld until quality judgments saved. Arms attached after assessment.",
+  "answers": [
+    {
+      "case": "marine-fastener",
+      "arm": "perspective",
+      "answer_id": "11A",
+      "requirements": [
+        {
+          "id": "marine-fastener-1",
+          "score": 2,
+          "reason": "Conditional acceptance, nominal thread match, length/head/engagement and strength checks; no certification of the unspecified joint. Listing tolerance explicitly is unnecessary for this practical answer.",
+          "evidence": "Both answers' opening and mechanical checks; grade/property-class distinction verified in BSSA tables: https://bssa.org.uk/bssa_articles/stainless-steel-fasteners-2/"
+        },
+        {
+          "id": "marine-fastener-2",
+          "score": 2,
+          "reason": "Correctly identifies galvanic corrosion of aluminium caused by stainless contact in salty moisture.",
+          "evidence": "ASSDA describes electrical contact, electrolyte, coastal salt effects, and possible aluminium attack around stainless screws: https://www.assda.asn.au/publications/technical-faqs/galvanicdissimilar-metal-corrosion"
+        },
+        {
+          "id": "marine-fastener-3",
+          "score": 2,
+          "reason": "Distinguishes common stainless/aluminium use from salt-spray risk and makes suitability conditional on protection and assembly. Does not explicitly discuss relative wetted areas. Requiring that particular explanation for full credit is overprescriptive for this user\u2019s practical request: its omission does not invalidate or materially weaken the recommendation.",
+          "evidence": "ASSDA explains that relative wetted areas and coastal contaminants affect severity: https://www.assda.asn.au/publications/technical-faqs/galvanicdissimilar-metal-corrosion; BSSA accepts some large-aluminium/small-stainless pairings but reports local marine pitting: https://bssa.org.uk/bssa_articles/bimetallic-galvanic-corrosion/"
+        },
+        {
+          "id": "marine-fastener-4",
+          "score": 2,
+          "reason": "Protects both threaded surfaces against electrolyte ingress, avoids washer-only isolation claim, checks mechanical suitability and avoids invented torque.",
+          "evidence": "Manufacturer instructs thin coating on bolt threads and tapped hole, specifies electrolyte exclusion rather than electrical insulation, and warns lubricant can alter torque: https://www.tefgel.com/contain.php?param=tefgel_infor"
+        },
+        {
+          "id": "marine-fastener-5",
+          "score": 2,
+          "reason": "Decision appears first and practical checks remain focused. Some redundant limitations, but no unrelated survey or manufactured disagreement.",
+          "evidence": "Answer text provides a direct recommendation and applicable manufacturer-backed installation steps: https://www.tefgel.com/contain.php?param=tefgel_infor"
+        }
+      ],
+      "consequential_errors": []
+    },
+    {
+      "case": "marine-fastener",
+      "arm": "single_session",
+      "answer_id": "11B",
+      "requirements": [
+        {
+          "id": "marine-fastener-1",
+          "score": 2,
+          "reason": "Conditional acceptance, nominal thread match, length/head/engagement and strength checks; no certification of the unspecified joint. Listing tolerance explicitly is unnecessary for this practical answer.",
+          "evidence": "Both answers' opening and mechanical checks; grade/property-class distinction verified in BSSA tables: https://bssa.org.uk/bssa_articles/stainless-steel-fasteners-2/"
+        },
+        {
+          "id": "marine-fastener-2",
+          "score": 2,
+          "reason": "Correctly identifies galvanic corrosion of aluminium caused by stainless contact in salty moisture.",
+          "evidence": "ASSDA describes electrical contact, electrolyte, coastal salt effects, and possible aluminium attack around stainless screws: https://www.assda.asn.au/publications/technical-faqs/galvanicdissimilar-metal-corrosion"
+        },
+        {
+          "id": "marine-fastener-3",
+          "score": 2,
+          "reason": "Explicitly distinguishes a small stainless bolt in a larger aluminium part from marine local pitting; risk is conditional on exposure and protection.",
+          "evidence": "ASSDA explains that relative wetted areas and coastal contaminants affect severity: https://www.assda.asn.au/publications/technical-faqs/galvanicdissimilar-metal-corrosion; BSSA accepts some large-aluminium/small-stainless pairings but reports local marine pitting: https://bssa.org.uk/bssa_articles/bimetallic-galvanic-corrosion/"
+        },
+        {
+          "id": "marine-fastener-4",
+          "score": 2,
+          "reason": "Protects both threaded surfaces against electrolyte ingress, avoids washer-only isolation claim, checks mechanical suitability and avoids invented torque.",
+          "evidence": "Manufacturer instructs thin coating on bolt threads and tapped hole, specifies electrolyte exclusion rather than electrical insulation, and warns lubricant can alter torque: https://www.tefgel.com/contain.php?param=tefgel_infor"
+        },
+        {
+          "id": "marine-fastener-5",
+          "score": 2,
+          "reason": "Decision appears first and practical checks remain focused. Some redundant limitations, but no unrelated survey or manufactured disagreement.",
+          "evidence": "Answer text provides a direct recommendation and applicable manufacturer-backed installation steps: https://www.tefgel.com/contain.php?param=tefgel_infor"
+        }
+      ],
+      "consequential_errors": []
+    },
+    {
+      "case": "sqlite-direct",
+      "arm": "perspective",
+      "answer_id": "12A",
+      "requirements": [
+        {
+          "id": "sqlite-direct-1",
+          "score": 2,
+          "reason": "Correctly answers no for the already established read transaction.",
+          "evidence": "Official two-connection BEGIN/SELECT then UPDATE example says subsequent SELECT sees old entries: https://sqlite.org/isolation.html"
+        },
+        {
+          "id": "sqlite-direct-2",
+          "score": 2,
+          "reason": "Explicitly states the transaction retains a fixed snapshot.",
+          "evidence": "WAL snapshot discussion says concurrent committed writes remain invisible to the active read transaction: https://sqlite.org/isolation.html"
+        },
+        {
+          "id": "sqlite-direct-3",
+          "score": 2,
+          "reason": "Explicitly says end the transaction and start a new one to observe the change.",
+          "evidence": "Official example requires ending the read transaction then beginning a new one: https://sqlite.org/isolation.html"
+        },
+        {
+          "id": "sqlite-direct-4",
+          "score": 2,
+          "reason": "Shared-cache/read_uncommitted is clearly labeled an exception, not asserted as the described configuration. The reference would be overprescriptive if it penalized merely mentioning this accurate caveat. Does not claim B is blocked.",
+          "evidence": "Official documentation distinguishes shared-cache plus read_uncommitted and treats such connections as one for visibility purposes; WAL allows simultaneous readers/writers: https://sqlite.org/isolation.html"
+        },
+        {
+          "id": "sqlite-direct-5",
+          "score": 2,
+          "reason": "Two short paragraphs answer the question with only a relevant isolation caveat and official source.",
+          "evidence": "The cited official isolation page directly covers the example and caveat: https://sqlite.org/isolation.html"
+        }
+      ],
+      "consequential_errors": []
+    },
+    {
+      "case": "sqlite-direct",
+      "arm": "single_session",
+      "answer_id": "12B",
+      "requirements": [
+        {
+          "id": "sqlite-direct-1",
+          "score": 2,
+          "reason": "Correctly answers no for the already established read transaction.",
+          "evidence": "Official two-connection BEGIN/SELECT then UPDATE example says subsequent SELECT sees old entries: https://sqlite.org/isolation.html"
+        },
+        {
+          "id": "sqlite-direct-2",
+          "score": 2,
+          "reason": "Explicitly states the transaction retains a fixed snapshot.",
+          "evidence": "WAL snapshot discussion says concurrent committed writes remain invisible to the active read transaction: https://sqlite.org/isolation.html"
+        },
+        {
+          "id": "sqlite-direct-3",
+          "score": 2,
+          "reason": "Explicitly says end the transaction and start a new one to observe the change.",
+          "evidence": "Official example requires ending the read transaction then beginning a new one: https://sqlite.org/isolation.html"
+        },
+        {
+          "id": "sqlite-direct-4",
+          "score": 2,
+          "reason": "Shared-cache/read_uncommitted is clearly labeled an exception, not asserted as the described configuration. The reference would be overprescriptive if it penalized merely mentioning this accurate caveat. Does not claim B is blocked.",
+          "evidence": "Official documentation distinguishes shared-cache plus read_uncommitted and treats such connections as one for visibility purposes; WAL allows simultaneous readers/writers: https://sqlite.org/isolation.html"
+        },
+        {
+          "id": "sqlite-direct-5",
+          "score": 2,
+          "reason": "Two short paragraphs answer the question with only a relevant isolation caveat and official source.",
+          "evidence": "The cited official isolation page directly covers the example and caveat: https://sqlite.org/isolation.html"
+        }
+      ],
+      "consequential_errors": []
+    },
+    {
+      "case": "office-policy",
+      "arm": "perspective",
+      "answer_id": "21A",
+      "requirements": [
+        {
+          "id": "office-policy-1",
+          "score": 2,
+          "reason": "Rejects universal five-day inference and separates hybrid eligibility from fully remote arrangements.",
+          "evidence": "Trip.com randomized two-day remote eligibility versus office attendance, not a fully remote policy: https://www.nature.com/articles/s41586-024-07500-2"
+        },
+        {
+          "id": "office-policy-2",
+          "score": 2,
+          "reason": "Accurately reports trial size, attrition reduction and measured performance findings, including incomplete take-up, equivalence bounds and six-month contrast versus longer follow-up; transfer is qualified.",
+          "evidence": "Trial abstract, methods, take-up and null-results sections support these distinctions: https://www.nature.com/articles/s41586-024-07500-2"
+        },
+        {
+          "id": "office-policy-3",
+          "score": 2,
+          "reason": "Examines real mentoring, collaboration and creative-task evidence, and limits inference from those measures to firm-wide productivity.",
+          "evidence": "Dated proximity account reports more feedback and lower immediate programming output: https://libertystreeteconomics.newyorkfed.org/2024/01/the-power-of-proximity-how-working-beside-colleagues-affects-training-and-productivity/ ; creative experiments concern generation rather than selection: https://www.nature.com/articles/s41586-022-04643-y"
+        },
+        {
+          "id": "office-policy-4",
+          "score": 2,
+          "reason": "Considers delivery, quality, learning, retention and costs with role/team differences. Proposed metric choices and managerial recommendations are distinguished from measured evidence.",
+          "evidence": "Trip.com provides attrition and performance evidence: https://www.nature.com/articles/s41586-024-07500-2 ; HCL provides innovation and coordination evidence with causal caution: https://www.nature.com/articles/s41598-024-67122-6"
+        },
+        {
+          "id": "office-policy-5",
+          "score": 2,
+          "reason": "Hybrid schedule is a provisional starting point, with a local comparison and explicit unknowns. Uses dated pre-cutoff proximity account, avoiding later revised findings.",
+          "evidence": "Dated January 2024 author account: https://libertystreeteconomics.newyorkfed.org/2024/01/the-power-of-proximity-how-working-beside-colleagues-affects-training-and-productivity/ ; six-month hybrid eligibility trial supports a starting point, not a universal optimum: https://www.nature.com/articles/s41586-024-07500-2"
+        }
+      ],
+      "consequential_errors": []
+    },
+    {
+      "case": "office-policy",
+      "arm": "single_session",
+      "answer_id": "21B",
+      "requirements": [
+        {
+          "id": "office-policy-1",
+          "score": 2,
+          "reason": "Rejects universal five-day inference and separates hybrid eligibility from fully remote arrangements.",
+          "evidence": "Trip.com randomized two-day remote eligibility versus office attendance, not a fully remote policy: https://www.nature.com/articles/s41586-024-07500-2"
+        },
+        {
+          "id": "office-policy-2",
+          "score": 2,
+          "reason": "Accurately reports trial size, attrition reduction and measured performance findings, including incomplete take-up, equivalence bounds and six-month contrast versus longer follow-up; transfer is qualified.",
+          "evidence": "Trial abstract, methods, take-up and null-results sections support these distinctions: https://www.nature.com/articles/s41586-024-07500-2"
+        },
+        {
+          "id": "office-policy-3",
+          "score": 2,
+          "reason": "Examines real mentoring, collaboration and creative-task evidence, and limits inference from those measures to firm-wide productivity.",
+          "evidence": "Dated proximity account reports more feedback and lower immediate programming output: https://libertystreeteconomics.newyorkfed.org/2024/01/the-power-of-proximity-how-working-beside-colleagues-affects-training-and-productivity/ ; creative experiments concern generation rather than selection: https://www.nature.com/articles/s41586-022-04643-y"
+        },
+        {
+          "id": "office-policy-4",
+          "score": 2,
+          "reason": "Considers delivery, quality, learning, retention and costs with role/team differences. Proposed metric choices and managerial recommendations are distinguished from measured evidence.",
+          "evidence": "Trip.com provides attrition and performance evidence: https://www.nature.com/articles/s41586-024-07500-2 ; HCL provides innovation and coordination evidence with causal caution: https://www.nature.com/articles/s41598-024-67122-6"
+        },
+        {
+          "id": "office-policy-5",
+          "score": 2,
+          "reason": "Hybrid schedule is a provisional starting point, with a local comparison and explicit unknowns. Uses dated pre-cutoff proximity account, avoiding later revised findings.",
+          "evidence": "Dated January 2024 author account: https://libertystreeteconomics.newyorkfed.org/2024/01/the-power-of-proximity-how-working-beside-colleagues-affects-training-and-productivity/ ; six-month hybrid eligibility trial supports a starting point, not a universal optimum: https://www.nature.com/articles/s41586-024-07500-2"
+        }
+      ],
+      "consequential_errors": []
+    },
+    {
+      "case": "rent-policy",
+      "arm": "perspective",
+      "answer_id": "22A",
+      "requirements": [
+        {
+          "id": "rent-policy-1",
+          "score": 2,
+          "reason": "Separates current resident stability from future renter access and short-run protection from supply/investment outcomes.",
+          "evidence": "AER abstract jointly reports incumbent displacement protection and subsequent rental-supply loss: https://www.aeaweb.org/articles?id=10.1257/aer.20181289"
+        },
+        {
+          "id": "rent-policy-2",
+          "score": 2,
+          "reason": "Accurately represents identifiable evidence of incumbent protection, while acknowledging that retention is not exclusively involuntary displacement prevention.",
+          "evidence": "AER abstract reports reduced mobility and city displacement: https://www.aeaweb.org/articles?id=10.1257/aer.20181289 ; authors quantify address and city retention: https://microeconomicinsights.org/who-benefits-from-rent-control-evidence-from-san-francisco/"
+        },
+        {
+          "id": "rent-policy-3",
+          "score": 2,
+          "reason": "Correct denominator for San Francisco supply reduction and no universal extrapolation. Discusses conflicting Catalonia evidence without falsely reconciling it.",
+          "evidence": "AER reports treated landlords' 15 percent rental-supply reduction: https://www.aeaweb.org/articles?id=10.1257/aer.20181289 ; Catalonia administrative records report 4\u20136 percent rent reductions and no detected supply loss: https://www.tse-fr.eu/sites/default/files/TSE/documents/conf/2023/echoppe/segu_paper.pdf"
+        },
+        {
+          "id": "rent-policy-4",
+          "score": 2,
+          "reason": "Explicit priorities and distributional weights separate value judgments from findings; differentiates coverage, turnover, adjustment and enforcement choices and model from empirical estimates.",
+          "evidence": "Model identifies insurance value and net welfare gains under its assumptions: https://www.nber.org/papers/w25906 ; policy coverage/enforcement and local treatment are described in Catalonia paper: https://www.tse-fr.eu/sites/default/files/TSE/documents/conf/2023/echoppe/segu_paper.pdf"
+        },
+        {
+          "id": "rent-policy-5",
+          "score": 2,
+          "reason": "Conditional package responds to local causes of displacement, with assistance, legal defense, preservation and supply alternatives; acknowledges unlike populations, budgets and uncertain comparative cost-effectiveness.",
+          "evidence": "HUD subsidy trial reports strong stability effects among formerly homeless families: https://www.huduser.gov/portal/publications/Family-Options-Study.html ; emergency-assistance study reports reduced shelter entry: https://nlihc.org/sites/default/files/Impact-of-homelessness-prevention.pdf ; new-housing paper reports local rent/access effects: https://research.upjohn.org/up_workingpapers/316/"
+        }
+      ],
+      "consequential_errors": []
+    },
+    {
+      "case": "rent-policy",
+      "arm": "single_session",
+      "answer_id": "22B",
+      "requirements": [
+        {
+          "id": "rent-policy-1",
+          "score": 2,
+          "reason": "Separates current resident stability from future renter access and short-run protection from supply/investment outcomes.",
+          "evidence": "AER abstract jointly reports incumbent displacement protection and subsequent rental-supply loss: https://www.aeaweb.org/articles?id=10.1257/aer.20181289"
+        },
+        {
+          "id": "rent-policy-2",
+          "score": 2,
+          "reason": "Accurately represents identifiable evidence of incumbent protection, while acknowledging that retention is not exclusively involuntary displacement prevention.",
+          "evidence": "AER abstract reports reduced mobility and city displacement: https://www.aeaweb.org/articles?id=10.1257/aer.20181289 ; authors quantify address and city retention: https://microeconomicinsights.org/who-benefits-from-rent-control-evidence-from-san-francisco/"
+        },
+        {
+          "id": "rent-policy-3",
+          "score": 2,
+          "reason": "Correct denominator for San Francisco supply reduction and no universal extrapolation. Discusses conflicting Catalonia evidence without falsely reconciling it.",
+          "evidence": "AER reports treated landlords' 15 percent rental-supply reduction: https://www.aeaweb.org/articles?id=10.1257/aer.20181289 ; Catalonia administrative records report 4\u20136 percent rent reductions and no detected supply loss: https://www.tse-fr.eu/sites/default/files/TSE/documents/conf/2023/echoppe/segu_paper.pdf"
+        },
+        {
+          "id": "rent-policy-4",
+          "score": 2,
+          "reason": "Explicit priorities and distributional weights separate value judgments from findings; differentiates coverage, turnover, adjustment and enforcement choices and model from empirical estimates.",
+          "evidence": "Model identifies insurance value and net welfare gains under its assumptions: https://www.nber.org/papers/w25906 ; policy coverage/enforcement and local treatment are described in Catalonia paper: https://www.tse-fr.eu/sites/default/files/TSE/documents/conf/2023/echoppe/segu_paper.pdf"
+        },
+        {
+          "id": "rent-policy-5",
+          "score": 2,
+          "reason": "Conditional package responds to local causes of displacement, with assistance, legal defense, preservation and supply alternatives; acknowledges unlike populations, budgets and uncertain comparative cost-effectiveness.",
+          "evidence": "HUD subsidy trial reports strong stability effects among formerly homeless families: https://www.huduser.gov/portal/publications/Family-Options-Study.html ; emergency-assistance study reports reduced shelter entry: https://nlihc.org/sites/default/files/Impact-of-homelessness-prevention.pdf ; new-housing paper reports local rent/access effects: https://research.upjohn.org/up_workingpapers/316/"
+        }
+      ],
+      "consequential_errors": []
+    },
+    {
+      "case": "long-context",
+      "arm": "single_session",
+      "answer_id": "31A",
+      "requirements": [
+        {
+          "id": "long-context-1",
+          "score": 2,
+          "reason": "Explicitly distinguishes fitting the corpus from reliable use, including distractors, position and multi-fact/aggregation failures.",
+          "evidence": "Lost in the Middle reports evidence-position sensitivity: https://aclanthology.org/2024.tacl-1.9/ ; RULER tests retrieval, tracing and aggregation beyond simple needle finding: https://arxiv.org/html/2404.06654v3"
+        },
+        {
+          "id": "long-context-2",
+          "score": 2,
+          "reason": "Accurately presents long-context successes and reasons to retain retrieval, including costs and baseline dependence; no universal winner.",
+          "evidence": "Li et al. find average LC advantages over their RAG configuration and lower-cost routing: https://arxiv.org/html/2407.16833v2 ; CAG's limited corpus experiments support retrieval-free use: https://arxiv.org/html/2412.15605v1 ; model-dependent context/cost findings: https://arxiv.org/html/2411.03538v1"
+        },
+        {
+          "id": "long-context-3",
+          "score": 2,
+          "reason": "Addresses corpus size/growth, task type, updates, caching, permissions, cost and latency; operational requirements are distinguished from empirical claims.",
+          "evidence": "CAG describes preloaded KV state and narrow benchmark conditions: https://arxiv.org/html/2412.15605v1 ; vendor caching and retrieval metrics: https://www.anthropic.com/engineering/contextual-retrieval ; answer text labels conditional engineering criteria."
+        },
+        {
+          "id": "long-context-4",
+          "score": 2,
+          "reason": "Gives plausible larger-unit retrieval and retrieval-first/full-context routing, with explicit transfer and routing limitations.",
+          "evidence": "LongRAG uses larger units and roughly 30k reader context: https://arxiv.org/html/2406.15319v3 ; Self-Route uses self-assessed answerability to route: https://arxiv.org/html/2407.16833v2"
+        },
+        {
+          "id": "long-context-5",
+          "score": 2,
+          "reason": "Recommends same-model/snapshot paired testing on real tasks, separately measuring correctness, completeness, support, cost and latency; no invented universally optimal configuration.",
+          "evidence": "Answer evaluation plans implement limitations shown by position-sensitive context use and citation support gaps: https://aclanthology.org/2024.tacl-1.9/ ; https://aclanthology.org/2023.emnlp-main.398.pdf"
+        }
+      ],
+      "consequential_errors": []
+    },
+    {
+      "case": "long-context",
+      "arm": "perspective",
+      "answer_id": "31B",
+      "requirements": [
+        {
+          "id": "long-context-1",
+          "score": 2,
+          "reason": "Explicitly distinguishes fitting the corpus from reliable use, including distractors, position and multi-fact/aggregation failures.",
+          "evidence": "Lost in the Middle reports evidence-position sensitivity: https://aclanthology.org/2024.tacl-1.9/ ; RULER tests retrieval, tracing and aggregation beyond simple needle finding: https://arxiv.org/html/2404.06654v3"
+        },
+        {
+          "id": "long-context-2",
+          "score": 2,
+          "reason": "Accurately presents long-context successes and reasons to retain retrieval, including costs and baseline dependence; no universal winner.",
+          "evidence": "Li et al. find average LC advantages over their RAG configuration and lower-cost routing: https://arxiv.org/html/2407.16833v2 ; CAG's limited corpus experiments support retrieval-free use: https://arxiv.org/html/2412.15605v1 ; model-dependent context/cost findings: https://arxiv.org/html/2411.03538v1"
+        },
+        {
+          "id": "long-context-3",
+          "score": 2,
+          "reason": "Addresses corpus size/growth, task type, updates, caching, permissions, cost and latency; operational requirements are distinguished from empirical claims.",
+          "evidence": "CAG describes preloaded KV state and narrow benchmark conditions: https://arxiv.org/html/2412.15605v1 ; vendor caching and retrieval metrics: https://www.anthropic.com/engineering/contextual-retrieval ; answer text labels conditional engineering criteria."
+        },
+        {
+          "id": "long-context-4",
+          "score": 2,
+          "reason": "Gives plausible larger-unit retrieval and retrieval-first/full-context routing, with explicit transfer and routing limitations.",
+          "evidence": "LongRAG uses larger units and roughly 30k reader context: https://arxiv.org/html/2406.15319v3 ; Self-Route uses self-assessed answerability to route: https://arxiv.org/html/2407.16833v2"
+        },
+        {
+          "id": "long-context-5",
+          "score": 2,
+          "reason": "Recommends same-model/snapshot paired testing on real tasks, separately measuring correctness, completeness, support, cost and latency; no invented universally optimal configuration.",
+          "evidence": "Answer evaluation plans implement limitations shown by position-sensitive context use and citation support gaps: https://aclanthology.org/2024.tacl-1.9/ ; https://aclanthology.org/2023.emnlp-main.398.pdf"
+        }
+      ],
+      "consequential_errors": []
+    },
+    {
+      "case": "citation-gate",
+      "arm": "single_session",
+      "answer_id": "32A",
+      "requirements": [
+        {
+          "id": "citation-gate-1",
+          "score": 2,
+          "reason": "Correctly limits the proposed checks to reachable destinations and marker distribution; requires inspecting actual source support.",
+          "evidence": "Historical audit explicitly distinguishes citation recall/precision and reports incomplete citation support: https://aclanthology.org/2023.findings-emnlp.467.pdf"
+        },
+        {
+          "id": "citation-gate-2",
+          "score": 2,
+          "reason": "Separates claim support from source quality, truth and answering all required questions.",
+          "evidence": "AIS says source quality requires complementary evaluation: https://aclanthology.org/2023.cl-4.2.pdf ; ALCE copying shortcuts can have high citation scores but poor coverage/fluency: https://aclanthology.org/2023.emnlp-main.398.pdf"
+        },
+        {
+          "id": "citation-gate-3",
+          "score": 2,
+          "reason": "Accurately uses research and historical figures, qualifies benchmark transfer and automated evaluator errors, and avoids infallibility claims.",
+          "evidence": "ALCE reports automatic judgment accuracies of 85.1/77.6 percent and limitations: https://aclanthology.org/2023.emnlp-main.398.pdf ; AttributionBench reports around 80 percent macro-F1 with nuanced/context failures: https://arxiv.org/abs/2402.15089"
+        },
+        {
+          "id": "citation-gate-4",
+          "score": 2,
+          "reason": "Explains real-page/unsupported-claim and omission failures, including partial support of multiple claims in one paragraph.",
+          "evidence": "FActScore motivates atomic factual assessment: https://aclanthology.org/2023.emnlp-main.741/ ; ALCE demonstrates high citation scores despite low answer coverage: https://aclanthology.org/2023.emnlp-main.398.pdf"
+        },
+        {
+          "id": "citation-gate-5",
+          "score": 2,
+          "reason": "Recommends source-passage checks, task coverage, calibrated selective acceptance, uncertainty handling and auditing without promising zero errors. Storing evidence metadata is relevant to this automated gate, not unnecessary bureaucracy; no mandatory heavyweight governance system is proposed.",
+          "evidence": "Automated attribution error evidence supports local validation: https://arxiv.org/abs/2402.15089 ; SAFE distinguishes search-supported from globally true and documents failures: https://arxiv.org/html/2403.18802v4 ; AIS separates source quality: https://aclanthology.org/2023.cl-4.2.pdf"
+        }
+      ],
+      "consequential_errors": []
+    },
+    {
+      "case": "citation-gate",
+      "arm": "perspective",
+      "answer_id": "32B",
+      "requirements": [
+        {
+          "id": "citation-gate-1",
+          "score": 2,
+          "reason": "Correctly limits the proposed checks to reachable destinations and marker distribution; requires inspecting actual source support.",
+          "evidence": "Historical audit explicitly distinguishes citation recall/precision and reports incomplete citation support: https://aclanthology.org/2023.findings-emnlp.467.pdf"
+        },
+        {
+          "id": "citation-gate-2",
+          "score": 2,
+          "reason": "Separates claim support from source quality, truth and answering all required questions.",
+          "evidence": "AIS says source quality requires complementary evaluation: https://aclanthology.org/2023.cl-4.2.pdf ; ALCE copying shortcuts can have high citation scores but poor coverage/fluency: https://aclanthology.org/2023.emnlp-main.398.pdf"
+        },
+        {
+          "id": "citation-gate-3",
+          "score": 2,
+          "reason": "Accurately uses research and historical figures, qualifies benchmark transfer and automated evaluator errors, and avoids infallibility claims.",
+          "evidence": "ALCE reports automatic judgment accuracies of 85.1/77.6 percent and limitations: https://aclanthology.org/2023.emnlp-main.398.pdf ; AttributionBench reports around 80 percent macro-F1 with nuanced/context failures: https://arxiv.org/abs/2402.15089"
+        },
+        {
+          "id": "citation-gate-4",
+          "score": 2,
+          "reason": "Explains real-page/unsupported-claim and omission failures, including partial support of multiple claims in one paragraph.",
+          "evidence": "FActScore motivates atomic factual assessment: https://aclanthology.org/2023.emnlp-main.741/ ; ALCE demonstrates high citation scores despite low answer coverage: https://aclanthology.org/2023.emnlp-main.398.pdf"
+        },
+        {
+          "id": "citation-gate-5",
+          "score": 2,
+          "reason": "Recommends source-passage checks, task coverage, calibrated selective acceptance, uncertainty handling and auditing without promising zero errors. Storing evidence metadata is relevant to this automated gate, not unnecessary bureaucracy; no mandatory heavyweight governance system is proposed.",
+          "evidence": "Automated attribution error evidence supports local validation: https://arxiv.org/abs/2402.15089 ; SAFE distinguishes search-supported from globally true and documents failures: https://arxiv.org/html/2403.18802v4 ; AIS separates source quality: https://aclanthology.org/2023.cl-4.2.pdf"
+        }
+      ],
+      "consequential_errors": []
+    }
+  ]
+}

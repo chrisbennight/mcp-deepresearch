@@ -17,6 +17,9 @@ use tokio_util::sync::CancellationToken;
 #[derive(Deserialize)]
 pub struct Case {
     pub id: String,
+    /// Compare policy guidance within one session, without workflow handoffs.
+    #[serde(default)]
+    pub single_session_policy: bool,
     pub request: ResearchRequest,
     pub assess: Vec<String>,
 }
@@ -113,6 +116,7 @@ pub async fn compare<R: AgentRuntime>(
             ResearchPolicy::Staged => "structured",
             ResearchPolicy::EvidenceAccess => "evidence_access",
             ResearchPolicy::Adaptive => "adaptive",
+            ResearchPolicy::Perspective => "perspective",
         };
         let arms = if index % 2 == 0 {
             [policy_arm, "single_session"]
@@ -130,7 +134,7 @@ pub async fn compare<R: AgentRuntime>(
             let started = Instant::now();
             if cancel.is_cancelled() {
                 controller.workspace.status = Status::Cancelled;
-            } else if arm != "single_session" {
+            } else if arm != "single_session" && !case.single_session_policy {
                 runtime::run(&observed, &mut controller, cancel.clone()).await;
             } else {
                 let mut assignment = controller

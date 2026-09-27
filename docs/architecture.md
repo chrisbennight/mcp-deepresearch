@@ -101,7 +101,14 @@ retention, recovery limits, protocol contract, and isolated integration walkthro
 ## Research policy experiments
 
 The default `staged` policy retains the existing sequence for comparison. Opt-in
-`evidence_access` and `adaptive` policies are described in the
+`evidence_access`, `adaptive`, and `perspective` policies are described in the
 [scored evaluation guide](scored-evaluation.md). They share the same execution and
 source boundaries. Adaptive investigations keep editable research questions and can
 finish directly; their proposed completion is still subject to external evaluation.
+
+Perspective research uses the existing mutable questions, findings, source material and
+working draft. Its responsibilities are intent interpretation, initial reconnaissance,
+domain-relevant question expansion, investigation, synthesis and substantive checking.
+They do not require separate sessions or another workflow engine. The implementation
+prompt is [perspective guidance](../prompts/perspective.md); its experimental boundary is
+recorded in the [study design](perspective-study.md).

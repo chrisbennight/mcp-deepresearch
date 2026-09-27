@@ -37,7 +37,7 @@ The adapter explicitly enables Codex's `mcp_2026_07_28` feature for the current 
 It ignores ordinary user configuration and rule files, disables shell tools,
 subagents and built-in web search, and connects to the host-managed [source adapter](source-access.md) during
 investigation. Under the default `staged` policy, writing and review use collected
-evidence without a gateway connection. Experimental `evidence_access` and `adaptive`
+evidence without a gateway connection. Experimental `evidence_access`, `adaptive`, and `perspective`
 policies give every assignment source access and a paged index of successfully retained
 material from earlier assignments in the same investigation.
 Use a gateway credential restricted to source operations: never permit administrative

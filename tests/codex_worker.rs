@@ -247,6 +247,7 @@ async fn writing_source_access_follows_policy_and_remaining_allowance() {
         ResearchPolicy::Staged,
         ResearchPolicy::EvidenceAccess,
         ResearchPolicy::Adaptive,
+        ResearchPolicy::Perspective,
     ] {
         for kind in [AssignmentKind::Synthesize, AssignmentKind::Review] {
             for allowance in [0, 1] {

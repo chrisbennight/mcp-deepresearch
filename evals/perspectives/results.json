@@ -1,0 +1,258 @@
+{
+  "configuration": {
+    "date": "2026-09-27",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "medium",
+    "wall_seconds_per_answer": 1200,
+    "configured_tool_allowance": 80,
+    "single_session_policy": true,
+    "code_revision": "cf76369064e1a0f6b983df70ceec92379b7d3a20",
+    "trial_build_note": "Frozen before the correction that retains Perspective working questions after a completed assignment. Prompts and one-session model inputs are identical to this revision; the post-answer workspace correction does not change these delivered answers. The original binary and source patch are retained privately.",
+    "source_tools": [
+      "kagi.kagi_search_fetch",
+      "kagi.kagi_extract"
+    ],
+    "case_split": "development",
+    "ordering": "Alternating workflow/control order across each two-case batch; batches run serially.",
+    "assessment": "Fresh-context sub-agent, anonymized answer review before reference scoring; timing and policy withheld until quality judgments are saved. Same model family; not human validation.",
+    "comparison": "Combined adaptive and perspective guidance versus ordinary single-session control; not an adaptive-only ablation.",
+    "limitations": [
+      "One observation per arm and case, not a statistical superiority test.",
+      "Observed MCP events do not count exact cumulative upstream source operations.",
+      "Recorded tokens are not subscription quota or billed cost.",
+      "Reviewer and research calls may overlap on shared infrastructure."
+    ]
+  },
+  "answers": [
+    {
+      "case": "marine-fastener",
+      "arm": "perspective",
+      "research_id": "48dc291c-e2ec-4b43-ae4a-986bd0647bd7",
+      "outcome": "completed",
+      "coverage": 100.0,
+      "strict_pass": true,
+      "consequential_errors": [],
+      "seconds": 81.674,
+      "runtime_calls": 1,
+      "usage": {
+        "tool_calls": 4,
+        "input_tokens": 160878,
+        "output_tokens": 1851
+      }
+    },
+    {
+      "case": "marine-fastener",
+      "arm": "single_session",
+      "research_id": "2dbdb8c4-ba91-4a4e-aed7-a52286f2cb55",
+      "outcome": "completed",
+      "coverage": 100.0,
+      "strict_pass": true,
+      "consequential_errors": [],
+      "seconds": 89.939,
+      "runtime_calls": 1,
+      "usage": {
+        "tool_calls": 6,
+        "input_tokens": 192384,
+        "output_tokens": 2165
+      }
+    },
+    {
+      "case": "sqlite-direct",
+      "arm": "single_session",
+      "research_id": "343285ee-fec6-43ed-ba0b-299544a48502",
+      "outcome": "completed",
+      "coverage": 100.0,
+      "strict_pass": true,
+      "consequential_errors": [],
+      "seconds": 32.292,
+      "runtime_calls": 1,
+      "usage": {
+        "tool_calls": 1,
+        "input_tokens": 70687,
+        "output_tokens": 720
+      }
+    },
+    {
+      "case": "sqlite-direct",
+      "arm": "perspective",
+      "research_id": "bdda342c-079d-4c70-ab1f-e4c2944ca193",
+      "outcome": "completed",
+      "coverage": 100.0,
+      "strict_pass": true,
+      "consequential_errors": [],
+      "seconds": 36.819,
+      "runtime_calls": 1,
+      "usage": {
+        "tool_calls": 1,
+        "input_tokens": 68501,
+        "output_tokens": 802
+      }
+    },
+    {
+      "case": "office-policy",
+      "arm": "perspective",
+      "research_id": "af940430-655d-44e5-83e7-d51d0fef791b",
+      "outcome": "completed",
+      "coverage": 100.0,
+      "strict_pass": true,
+      "consequential_errors": [],
+      "seconds": 274.95,
+      "runtime_calls": 1,
+      "usage": {
+        "tool_calls": 26,
+        "input_tokens": 936500,
+        "output_tokens": 6319
+      }
+    },
+    {
+      "case": "office-policy",
+      "arm": "single_session",
+      "research_id": "b2e6d8d0-48b2-4fa3-87fd-943b7be0a17e",
+      "outcome": "completed",
+      "coverage": 100.0,
+      "strict_pass": true,
+      "consequential_errors": [],
+      "seconds": 276.538,
+      "runtime_calls": 1,
+      "usage": {
+        "tool_calls": 30,
+        "input_tokens": 958573,
+        "output_tokens": 7219
+      }
+    },
+    {
+      "case": "rent-policy",
+      "arm": "single_session",
+      "research_id": "58cedd03-da49-4543-b5ee-e22536be3389",
+      "outcome": "completed",
+      "coverage": 100.0,
+      "strict_pass": true,
+      "consequential_errors": [],
+      "seconds": 300.645,
+      "runtime_calls": 1,
+      "usage": {
+        "tool_calls": 31,
+        "input_tokens": 855750,
+        "output_tokens": 7195
+      }
+    },
+    {
+      "case": "rent-policy",
+      "arm": "perspective",
+      "research_id": "fd16c0a7-b6ca-481c-9631-192b0a1962f9",
+      "outcome": "completed",
+      "coverage": 100.0,
+      "strict_pass": true,
+      "consequential_errors": [],
+      "seconds": 274.915,
+      "runtime_calls": 1,
+      "usage": {
+        "tool_calls": 30,
+        "input_tokens": 682672,
+        "output_tokens": 7006
+      }
+    },
+    {
+      "case": "long-context",
+      "arm": "perspective",
+      "research_id": "7dd5bd57-9c47-450e-a359-73795031eb87",
+      "outcome": "completed",
+      "coverage": 100.0,
+      "strict_pass": true,
+      "consequential_errors": [],
+      "seconds": 299.989,
+      "runtime_calls": 1,
+      "usage": {
+        "tool_calls": 27,
+        "input_tokens": 915616,
+        "output_tokens": 7604
+      }
+    },
+    {
+      "case": "long-context",
+      "arm": "single_session",
+      "research_id": "208ec8ff-38b8-4d1d-b4f0-0cccfbe25dbf",
+      "outcome": "completed",
+      "coverage": 100.0,
+      "strict_pass": true,
+      "consequential_errors": [],
+      "seconds": 200.959,
+      "runtime_calls": 1,
+      "usage": {
+        "tool_calls": 64,
+        "input_tokens": 901460,
+        "output_tokens": 7671
+      }
+    },
+    {
+      "case": "citation-gate",
+      "arm": "single_session",
+      "research_id": "50489e6c-19b0-4381-884c-e187fc803e95",
+      "outcome": "completed",
+      "coverage": 100.0,
+      "strict_pass": true,
+      "consequential_errors": [],
+      "seconds": 163.364,
+      "runtime_calls": 1,
+      "usage": {
+        "tool_calls": 10,
+        "input_tokens": 368208,
+        "output_tokens": 4106
+      }
+    },
+    {
+      "case": "citation-gate",
+      "arm": "perspective",
+      "research_id": "5cc507d0-136a-4c46-a144-347b8d8cd76d",
+      "outcome": "completed",
+      "coverage": 100.0,
+      "strict_pass": true,
+      "consequential_errors": [],
+      "seconds": 177.386,
+      "runtime_calls": 1,
+      "usage": {
+        "tool_calls": 15,
+        "input_tokens": 454064,
+        "output_tokens": 4343
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "case": "marine-fastener",
+      "preferred": "tie",
+      "reason": "Both give the same defensible practical recommendation with material risks and mitigations. 11B's explicit relative-area and non-insulation explanations are accurate refinements; 11A already states the correct saltwater-exclusion mechanism and does not materially mislead.",
+      "preferred_arm": "tie"
+    },
+    {
+      "case": "sqlite-direct",
+      "preferred": "tie",
+      "reason": "Essentially equivalent correct, concise answers with the same accurately bounded caveat.",
+      "preferred_arm": "tie"
+    },
+    {
+      "case": "office-policy",
+      "preferred": "tie",
+      "reason": "Both reach the same well-qualified conclusion and actionable local evaluation. Minor differences in presentation and extra supporting evidence do not create a substantive advantage; both are longer than necessary but informative.",
+      "preferred_arm": "tie"
+    },
+    {
+      "case": "rent-policy",
+      "preferred": "tie",
+      "reason": "Both provide supported trade-offs, explicit value choices, design distinctions and conditional recommendations. 22B adds broader review evidence; 22A gives a more economical account and useful distinction between listings and occupied stock. Neither has a material correctness or usefulness deficit.",
+      "preferred_arm": "tie"
+    },
+    {
+      "case": "long-context",
+      "preferred": "tie",
+      "reason": "Both supply accurate conditional decisions, caching economics, governance requirements and fair workload evaluation. 31A's LOFT/global-task evidence and 31B's direct OP-RAG counterexample/arithmetic are complementary, without a material quality gap.",
+      "preferred_arm": "tie"
+    },
+    {
+      "case": "citation-gate",
+      "preferred": "tie",
+      "reason": "Both clearly separate reachability, support, truth and coverage, cite verified historical research and recommend calibrated selective automation. Differences in examples and evaluator studies do not change correctness or usefulness materially.",
+      "preferred_arm": "tie"
+    }
+  ]
+}
