@@ -207,13 +207,13 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
         )
         .await
         .unwrap();
-    let names: Vec<_> = client
-        .list_all_tools()
-        .await
-        .unwrap()
-        .into_iter()
-        .map(|t| t.name.to_string())
-        .collect();
+    let advertised = client.list_all_tools().await.unwrap();
+    assert!(
+        advertised
+            .iter()
+            .all(|tool| tool.annotations.as_ref().and_then(|a| a.read_only_hint) == Some(true))
+    );
+    let names: Vec<_> = advertised.into_iter().map(|t| t.name.to_string()).collect();
     assert_eq!(names, vec!["search", "read", "read_source_material"]);
     assert!(
         client
