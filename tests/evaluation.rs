@@ -85,3 +85,63 @@ async fn comparison_distinguishes_answers_failures_and_skipped_work() {
     );
     std::fs::remove_dir_all(root).unwrap();
 }
+
+struct PartialDraft(NextAction);
+impl AgentRuntime for PartialDraft {
+    async fn execute(
+        &self,
+        _: Assignment,
+        _: CancellationToken,
+    ) -> Result<AssignmentResult, RuntimeError> {
+        Ok(AssignmentResult {
+            sources: vec![],
+            findings: vec![],
+            uncertainties: vec![],
+            outline: vec![],
+            draft: Some("Partial answer; important work remains.".into()),
+            next: self.0.clone(),
+            usage: Usage::default(),
+        })
+    }
+}
+#[tokio::test]
+async fn baseline_partial_drafts_do_not_hide_clarification_or_unfinished_work() {
+    let root = std::env::temp_dir().join(format!("research-evaluation-{}", ResearchId::default()));
+    for (action, expected) in [
+        (
+            NextAction::AskUser {
+                question: "Which alternative matters?".into(),
+            },
+            "needs_input",
+        ),
+        (
+            NextAction::Investigate {
+                question: "Read the primary evidence".into(),
+                strategy: None,
+            },
+            "incomplete",
+        ),
+    ] {
+        let result = compare(
+            &PartialDraft(action),
+            vec![case()],
+            "fixture",
+            &root,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        let baseline = result
+            .measurements
+            .iter()
+            .find(|r| r.arm == "single_session")
+            .unwrap();
+        assert_eq!(baseline.outcome, expected);
+        assert!(
+            std::fs::read_to_string(root.join(format!("{}.md", baseline.research_id)))
+                .unwrap()
+                .contains("Partial answer")
+        );
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}

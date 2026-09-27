@@ -86,6 +86,7 @@ impl FileKey {
 struct Inner {
     root: PathBuf,
     origin: String,
+    transport: String,
     owner: String,
     tickets: Mutex<HashMap<Uuid, Ticket>>,
     publication: Mutex<()>,
@@ -118,11 +119,15 @@ impl FileStore {
         }
         Ok(Self(Arc::new(Inner {
             root,
-            origin: origin.trim_end_matches('/').into(),
+            origin: url.origin().ascii_serialization(),
+            transport: url.scheme().into(),
             owner,
             tickets: Mutex::new(HashMap::new()),
             publication: Mutex::new(()),
         })))
+    }
+    pub fn transport(&self) -> &str {
+        &self.0.transport
     }
     fn path(&self, key: &FileKey) -> PathBuf {
         self.0.root.join(key.kind).join(key.id.to_string())
@@ -195,7 +200,7 @@ impl FileStore {
             },
         );
         Ok(
-            json!({"transport":"https","method":method,"url":url,"headers":{"Authorization":format!("Bearer {token}")},"expiresAt":jiff::Timestamp::from_second(expires as i64).expect("timestamp").to_string()}),
+            json!({"transport":self.transport(),"method":method,"url":url,"headers":{"Authorization":format!("Bearer {token}")},"expiresAt":jiff::Timestamp::from_second(expires as i64).expect("timestamp").to_string()}),
         )
     }
     pub async fn authorize_upload(&self, params: Value) -> Result<Value, &'static str> {
@@ -470,7 +475,7 @@ async fn download(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
-pub fn client_supports(meta: &rmcp::model::MetaObject, direction: &str) -> bool {
+pub fn client_supports(meta: &rmcp::model::MetaObject, direction: &str, transport: &str) -> bool {
     meta.get("io.modelcontextprotocol/clientCapabilities")
         .and_then(|c| c.get("files"))
         .is_some_and(|files| {
@@ -478,7 +483,7 @@ pub fn client_supports(meta: &rmcp::model::MetaObject, direction: &str) -> bool 
                 && files
                     .get("transports")
                     .and_then(Value::as_array)
-                    .is_some_and(|v| v.iter().any(|s| s == "https"))
+                    .is_some_and(|v| v.iter().any(|s| s == transport))
         })
 }
 pub fn attachment_path(root: &Path, uri: &str) -> Result<PathBuf, &'static str> {

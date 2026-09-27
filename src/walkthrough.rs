@@ -36,7 +36,7 @@ impl Client {
         }
         let request = serde_json::from_value(json!({"method":method,"params":params}))?;
         let mut meta = RequestMetaObject::new();
-        meta.insert("io.modelcontextprotocol/clientCapabilities".into(), json!({"files":{"upload":true,"download":true,"transports":["https"]},"extensions":{"io.modelcontextprotocol/tasks":{}}}));
+        meta.insert("io.modelcontextprotocol/clientCapabilities".into(), json!({"files":{"upload":true,"download":true,"transports":if reqwest::Url::parse(&self.url)?.scheme() == "http" {vec!["https", "http"]} else {vec!["https"]}},"extensions":{"io.modelcontextprotocol/tasks":{}}}));
         let response = self.service.peer().send_request_with_option(request, PeerRequestOptions::with_timeout(Duration::from_secs(60)).with_meta(meta)).await
             .map_err(|_| "MCP request could not be sent")?
             .await_response().await.map_err(|_| "MCP operation failed; inspect service status without logging transfer credentials")?;
@@ -47,12 +47,14 @@ impl Client {
         descriptor: &Value,
         method: &str,
     ) -> Result<reqwest::RequestBuilder, Box<dyn std::error::Error>> {
-        if descriptor["method"] != method || descriptor["transport"] != "https" {
+        if descriptor["method"] != method {
             return Err("unsupported transfer descriptor".into());
         }
         let url = reqwest::Url::parse(descriptor["url"].as_str().ok_or("missing transfer URL")?)?;
         let endpoint = reqwest::Url::parse(&self.url)?;
-        if url.origin() != endpoint.origin()
+        if descriptor["transport"] != url.scheme()
+            || !matches!(url.scheme(), "https" | "http")
+            || url.origin() != endpoint.origin()
             || !url.username().is_empty()
             || url.password().is_some()
         {

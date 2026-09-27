@@ -24,7 +24,11 @@ bytes; they do not claim malware scanning or source accuracy.
 
 Set `DEEPRESEARCH_FILE_ORIGIN` to the externally reachable HTTPS origin that routes
 `/files/*` to this service. Its default is `http://127.0.0.1:8088` for local use;
-cleartext is accepted only for loopback configuration. Transfer headers carry
+cleartext is accepted only for loopback configuration. Discovery advertises that
+origin's actual transport; local HTTP clients must include `http` in their file
+capabilities. Descriptors always match the URL scheme. Waygate advertises HTTP
+only when its upstream MCP connection permits the pinned cleartext exception.
+Transfer headers carry
 short-lived authorization. Never put them in a prompt, log, issue, or shared URL.
 They are distinct from both inbound MCP authentication and outbound source access.
 
