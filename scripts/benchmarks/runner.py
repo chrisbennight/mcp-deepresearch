@@ -68,7 +68,7 @@ def grade(args):
     tasks = {t["id"]: t for t in suite["tasks"]}
     kind = suite["benchmark"]
     if kind not in ("drb2", "researchrubrics", "trec-rag", "deepsearchqa"):
-        raise ValueError("use the upstream evaluator and native-import for this component")
+        raise ValueError("this dataset has no subscription grading recipe")
     selected = [(m, tasks[m["case"]]) for m in evaluation["measurements"]]
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=False)
@@ -77,10 +77,15 @@ def grade(args):
         rid = file_id(measurement["research_id"])
         answer_path = Path(args.evaluation).parent / f"{rid}.md"
         answer = answer_path.read_text()
+        workspace = read(answer_path.with_suffix(".json"))
+        has_answer = bool(workspace["draft"].strip() or workspace["notes"])
         reference = task["reference"]
         # The assessment receives neither arm labels, timing nor completion state.
         context = {"question": task["prompt"], "answer": answer, "reference": reference}
-        if kind == "deepsearchqa":
+        if not has_answer:
+            judgment = {"consequential_errors": [], "unresolved": ["No research answer or collected findings were produced; quality is unscored."]}
+            metrics = {}
+        elif kind == "deepsearchqa":
             judgment = assess(args.binary, {"objective": SET_JUDGE, "context": json.dumps(context, ensure_ascii=False), "seconds": args.seconds, "tool_calls": args.tool_calls}, output / rid)
             metrics = set_metrics(judgment)
         else:
@@ -96,7 +101,7 @@ def grade(args):
             judgment = {"items": all_items, "consequential_errors": sorted(set(errors)), "unresolved": sorted(set(unresolved))}
             metrics = rubric_metrics(kind, criteria, judgment)
         record = {"research_id": rid, "case": task["id"], "arm": agent_label(evaluation, measurement), "outcome": measurement["outcome"],
-            "elapsed_ms": measurement["elapsed_ms"], "usage": measurement["usage"], "metrics": metrics, "judgment": judgment}
+            "elapsed_ms": measurement["elapsed_ms"], "usage": measurement["usage"], "metrics": metrics, "judgment": judgment, "graded": has_answer}
         records.append(record)
         write(output / "scores.json", {"benchmark": kind, "release": suite["release"], "population": suite["population"],
             "environment": evaluation.get("environment", "unspecified (legacy evaluation)"), "intended_environment": suite["environment"], "protocol": "adapted-runtime-v1", "judge_model": os.environ.get("DEEPRESEARCH_MODEL"),
@@ -107,50 +112,8 @@ def grade(args):
             "note": "Published task criteria with a substituted judge/prompt. Not native leaderboard results; source checks are inspectable model judgments, not proof of correctness.", "records": records})
 
 
-def export(args):
-    suite, evaluation = read(args.suite), read_evaluation(args.evaluation)
-    output = Path(args.output)
-    tasks = {t["id"]: t for t in suite["tasks"]}
-    selected = [m for m in evaluation["measurements"] if m["arm"] == args.arm]
-    if not selected or len({m["case"] for m in selected}) != len(selected):
-        raise ValueError("select one populated arm and one attempt per task")
-    prepared = []
-    for m in selected:
-        task = tasks[m["case"]]
-        rid, tid = file_id(m["research_id"]), file_id(task["id"])
-        text = (Path(args.evaluation).parent / f"{rid}.md").read_text()
-        prepared.append((tid, text, {"id": int(task["id"]) if suite["benchmark"] == "drb1" else task["id"], "prompt": task["prompt"], "article": text}))
-    output.mkdir(parents=True, exist_ok=False)
-    for tid, text, _ in prepared:
-        (output / (f"idx-{tid}.md" if suite["benchmark"] == "drb2" else f"{tid}.md")).write_text(text)
-    (output / "reports.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False)+"\n" for _, _, r in prepared))
-    write(output / "run-context.json", {"benchmark": suite["benchmark"], "release": suite["release"], "measurements": selected,
-        "note": "Preserve failed/incomplete outcomes when joining upstream scores. Export alone does not establish native protocol conformance."})
 
 
-def native_import(args):
-    """Retain the complete upstream result, with a declared per-task metric mapping."""
-    evaluation = read_evaluation(args.evaluation)
-    suite = read(args.suite)
-    upstream = rows(args.input)
-    # Flat CSV/JSON per-task outputs are common upstream. Metric paths are explicit
-    # rather than guessed, and no upstream code is installed or executed implicitly.
-    columns = dict(item.split("=", 1) for item in args.metrics)
-    table = {str(row[args.id_column]): row for row in upstream}
-    if len(table) != len(upstream):
-        raise ValueError("upstream scores must contain one selected arm/attempt per task")
-    selected = [m for m in evaluation["measurements"] if m["arm"] == args.arm]
-    if not selected or len({m["case"] for m in selected}) != len(selected):
-        raise ValueError("select one populated arm and one attempt per task")
-    records = []
-    for m in selected:
-        raw = table.get(m["case"])
-        metrics = {name: float(raw[col]) if raw and raw.get(col) not in (None, "") else None for name, col in columns.items()}
-        records.append({"research_id": m["research_id"], "case": m["case"], "arm": agent_label(evaluation, m), "outcome": m["outcome"], "elapsed_ms": m["elapsed_ms"], "usage": m["usage"], "metrics": metrics,
-            "judgment": {"consequential_errors": [], "unresolved": ["source-support detail is in upstream output; empty error list does not establish correctness"]}})
-    write(args.output, {"benchmark": suite["benchmark"], "release": suite["release"], "population": suite["population"], "environment": evaluation.get("environment", "unspecified (legacy evaluation)"), "intended_environment": suite["environment"], "protocol": args.protocol,
-        "judge_model": args.judge, "judge_environment": args.judge_environment, "mode": evaluation["mode"], "source_evaluation": str(Path(args.evaluation).resolve()),
-        "qualification": "external; see upstream recipe", "upstream_result": upstream, "records": records})
 
 
 def qualify(args):
