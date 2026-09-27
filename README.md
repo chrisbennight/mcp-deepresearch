@@ -18,10 +18,19 @@ See the [service guide](docs/service.md). Progress is tracked in the
 
 ## Published benchmark evaluation
 
-Use the [benchmark guide](docs/benchmarks.md) to import published tasks, compare
-research policies against the single-session control, assess saved answers, and
-produce separate coverage, synthesis and evidence scorecards. Local substituted
-graders are labeled adapted; upstream scores remain distinct.
+Run the public-data baseline with the existing Codex subscription and configured
+source gateway. It downloads public DeepSearchQA, DeepResearch Bench II, TREC RAG25
+nuggets, TREC ResearchRubrics development tasks, and REFLECT diagnostics. Research
+and grading use the same runtime; no separate model-provider keys are needed.
+
+```sh
+uv run --no-project python scripts/benchmark.py baseline /private/eval/baseline
+```
+
+Use `--prepare-only` to download and inspect the selected tasks without model calls.
+The [benchmark guide](docs/benchmarks.md) explains the comparisons, source checks,
+small default sample, and recovery after subscription limits. Scores are adapted
+measurements, not official leaderboard results.
 
 ## Build
 

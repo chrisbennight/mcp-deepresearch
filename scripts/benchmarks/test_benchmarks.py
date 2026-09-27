@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from .runner import grade, native_import, run, read_evaluation
+from .runner import grade, run, read_evaluation
 from .data import import_tasks, prepare
 from .scoring import rubric_metrics, set_metrics
 from .report import summarize, report as build_report
@@ -68,24 +68,10 @@ class PublishedContracts(unittest.TestCase):
             for name, value in (("suite",suite),("evaluation",evaluation)):
                 (root/(name+".json")).write_text(json.dumps(value))
             (root/"answer.md").write_text("answer")
-            (root/"upstream.csv").write_text("id,f1\na,1\n")
             args = argparse.Namespace(suite=root/"suite.json", evaluation=root/"evaluation.json", output=root/"grade", binary="unused", seconds=600, tool_calls=24, batch_size=20, qualification="test", judge_environment="grader-web")
             with patch("benchmarks.runner.assess", return_value=dict(gold_items=["answer"], predicted_items=["answer"], matches=[[0,0]], reason="match", consequential_errors=[], unresolved=[])):
                 grade(args)
             self.assertEqual(json.loads((root/"grade/scores.json").read_text())["environment"],"actual-corpus")
-            args.output=root/"native.json"
-            args.input=root/"upstream.csv"
-            args.arm="single_session"
-            args.id_column="id"
-            args.metrics=["f1=f1"]
-            args.protocol="upstream-test"
-            args.judge="judge"
-            native_import(args)
-            self.assertEqual(json.loads(args.output.read_text())["environment"],"actual-corpus")
-            del evaluation["environment"]
-            (root/"evaluation.json").write_text(json.dumps(evaluation))
-            native_import(args)
-            self.assertEqual(json.loads(args.output.read_text())["environment"],"unspecified (legacy evaluation)")
 
     def test_interrupted_attempt_retains_comparison_conditions(self):
         with tempfile.TemporaryDirectory() as d:

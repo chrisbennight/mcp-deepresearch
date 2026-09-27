@@ -8,8 +8,8 @@ The application owns the question, resource limits, mutable notes, selected sour
 excerpts, and cited answer. Restate owns execution and recovery. The parent merges
 worker findings into the workspace; child assignments do not write shared notes.
 Application model work, including planning, writing, and review, uses the replaceable runtime.
-The separate benchmark CLI can explicitly invoke published external evaluators; see
-[benchmark execution and prerequisites](benchmarks.md#execute-the-published-evaluator).
+Benchmark research and grading use that same runtime with public datasets; see
+[the runnable baseline](benchmarks.md).
 Subscription access does not imply unlimited capacity or reliable token accounting.
 
 The MCP boundary targets **2026-07-28 only**, stateless Streamable HTTP at `/mcp`.
