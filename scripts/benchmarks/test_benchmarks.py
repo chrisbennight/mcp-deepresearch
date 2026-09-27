@@ -79,6 +79,8 @@ class PublishedContracts(unittest.TestCase):
             for label, workspace, expected in (
                 ("partial", dict(draft="partial answer", notes=[]), True),
                 ("findings", dict(draft="", notes=[dict(text="Relevant finding")]), True),
+                ("question-answer", dict(draft="", notes=[], questions={"q":dict(answer="Collected answer")}), True),
+                ("unanswered", dict(draft="", notes=[], questions={"q":dict(answer="")}), False),
                 ("absent", dict(draft="", notes=[]), False),
             ):
                 (root/"answer.json").write_text(json.dumps(workspace))

@@ -211,3 +211,31 @@ async fn three_arm_comparison_requires_observed_sessions_for_multi_agent_claims(
     );
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[tokio::test]
+async fn synthesis_can_request_evidence_before_writing_an_answer() {
+    let mut controller = Controller::new(
+        Workspace::new("test".into(), request()).unwrap(),
+        runtime::unix_seconds(),
+    );
+    while let Some(assignment) = controller.assignment(runtime::unix_seconds()) {
+        let mut result = FixtureRuntime::default()
+            .execute(assignment.clone(), CancellationToken::new())
+            .await
+            .unwrap();
+        if assignment.kind == AssignmentKind::Synthesize {
+            result.draft = None;
+            result.next = NextAction::Investigate {
+                question: "Resolve the formulation ambiguity".into(),
+                strategy: None,
+            };
+            controller.complete(result).unwrap();
+            let followup = controller.assignment(runtime::unix_seconds()).unwrap();
+            assert_eq!(followup.kind, AssignmentKind::Investigate);
+            assert_eq!(followup.focus, "Resolve the formulation ambiguity");
+            return;
+        }
+        controller.complete(result).unwrap();
+    }
+    panic!("synthesis was never reached");
+}

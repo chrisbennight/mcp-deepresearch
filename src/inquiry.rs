@@ -79,6 +79,7 @@ impl Inquiry {
             }
         }
         if *kind == AssignmentKind::Synthesize
+            && !matches!(result.next, NextAction::Investigate { .. })
             && result
                 .draft
                 .as_ref()
@@ -141,6 +142,12 @@ impl Inquiry {
             AssignmentKind::IndependentResearch => {
                 *kind = AssignmentKind::CoverageReview;
                 *focus = "Combine the independent findings. Update questions and identify consequential unanswered needs, contradictions, and relevant discoveries outside the initial framing. Request a specific further investigation if needed; otherwise synthesize.".into();
+            }
+            AssignmentKind::Synthesize if matches!(next, NextAction::Investigate { .. }) => {
+                if let NextAction::Investigate { question, .. } = next {
+                    *kind = AssignmentKind::Investigate;
+                    *focus = question;
+                }
             }
             AssignmentKind::Synthesize => {
                 *kind = AssignmentKind::Review;

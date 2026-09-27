@@ -153,3 +153,29 @@ fn added_attachments_do_not_reuse_an_existing_web_citation() {
         "A subsequently read passage"
     );
 }
+
+#[test]
+fn interrupted_question_answers_remain_in_the_report() {
+    let mut req = request();
+    req.policy = ResearchPolicy::MultiAgent;
+    let mut workspace = Workspace::new("test".into(), req).unwrap();
+    let mut collected = result();
+    collected.draft = None;
+    collected.findings.clear();
+    collected.questions.push(ResearchQuestion {
+        id: "q-recovery".into(),
+        question: "How does recovery work?".into(),
+        important: true,
+        answer: "Completed steps are reused.".into(),
+        sources: vec!["S1".into()],
+        remaining_gap: "External side effects still need checking.".into(),
+    });
+    workspace.apply(collected).unwrap();
+    workspace.status = Status::Exhausted {
+        reason: "time allowance reached".into(),
+    };
+    let report = workspace.report();
+    assert!(report.contains("Completed steps are reused. [S1]"));
+    assert!(report.contains("External side effects still need checking."));
+    assert!(report.contains("Research stopped"));
+}

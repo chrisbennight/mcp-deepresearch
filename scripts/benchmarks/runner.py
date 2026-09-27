@@ -80,7 +80,8 @@ def grade(args):
         answer = answer_path.read_text()
         workspace = read(answer_path.with_suffix(".json"))
         workflow_valid = measurement.get("workflow_verified") is not False
-        has_answer = bool(workspace["draft"].strip() or workspace["notes"])
+        has_answer = bool(workspace["draft"].strip() or workspace["notes"] or
+                          any(q["answer"].strip() for q in workspace.get("questions", {}).values()))
         reference = task["reference"]
         # The assessment receives neither arm labels, timing nor completion state.
         context = {"question": task["prompt"], "answer": answer, "reference": reference}

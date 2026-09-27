@@ -248,6 +248,31 @@ impl Workspace {
                 ));
             }
         }
+        if self.draft.is_empty() || self.status != Status::Completed {
+            for question in self
+                .questions
+                .values()
+                .filter(|q| !q.answer.trim().is_empty())
+            {
+                report.push_str(&format!(
+                    "\n\n### {}\n\n{} {}",
+                    question.question,
+                    question.answer,
+                    question
+                        .sources
+                        .iter()
+                        .map(|id| format!("[{id}]"))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                ));
+                if !question.remaining_gap.is_empty() {
+                    report.push_str(&format!(
+                        "\n\nRemaining question: {}",
+                        question.remaining_gap
+                    ));
+                }
+            }
+        }
         if !self.uncertainties.is_empty() {
             report.push_str("\n\n## Uncertainty and limitations\n");
             for question in &self.uncertainties {
