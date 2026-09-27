@@ -104,12 +104,18 @@ impl Controller {
 
     pub fn complete(&mut self, mut result: AssignmentResult) -> Result<(), ResearchError> {
         if self.workspace.request.policy == ResearchPolicy::MultiAgent {
-            return self.inquiry.complete(
-                &mut self.workspace,
-                &mut self.kind,
-                &mut self.focus,
-                result,
-            );
+            let requested_strategy = match &result.next {
+                NextAction::Investigate { strategy, .. } => *strategy,
+                _ => None,
+            };
+            self.inquiry
+                .complete(&mut self.workspace, &mut self.kind, &mut self.focus, result)?;
+            if self.kind == AssignmentKind::Investigate
+                && let Some(strategy) = requested_strategy
+            {
+                self.strategy = strategy;
+            }
+            return Ok(());
         }
         // A focused investigation adds evidence; it does not replace the working answer.
         // Adaptive completion explicitly delivers a complete answer to the original objective.

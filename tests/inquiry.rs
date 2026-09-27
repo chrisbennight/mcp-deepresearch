@@ -227,15 +227,44 @@ async fn synthesis_can_request_evidence_before_writing_an_answer() {
             result.draft = None;
             result.next = NextAction::Investigate {
                 question: "Resolve the formulation ambiguity".into(),
-                strategy: None,
+                strategy: Some(Strategy::Exploration),
             };
             controller.complete(result).unwrap();
             let followup = controller.assignment(runtime::unix_seconds()).unwrap();
             assert_eq!(followup.kind, AssignmentKind::Investigate);
+            assert_eq!(followup.strategy, Strategy::Exploration);
             assert_eq!(followup.focus, "Resolve the formulation ambiguity");
             return;
         }
         controller.complete(result).unwrap();
     }
     panic!("synthesis was never reached");
+}
+
+#[tokio::test]
+async fn primary_research_can_resolve_a_reconnaissance_question() {
+    let mut controller = Controller::new(
+        Workspace::new("test".into(), request()).unwrap(),
+        runtime::unix_seconds(),
+    );
+    for _ in 0..2 {
+        let assignment = controller.assignment(runtime::unix_seconds()).unwrap();
+        let mut result = FixtureRuntime::default()
+            .execute(assignment.clone(), CancellationToken::new())
+            .await
+            .unwrap();
+        if assignment.kind == AssignmentKind::PrimaryResearch {
+            let mut question = controller.workspace.questions["Q1"].clone();
+            question.answer = "Recovery reuses completed steps.".into();
+            question.sources = vec!["S1".into()];
+            question.remaining_gap.clear();
+            result.questions = vec![question];
+        }
+        controller.complete(result).unwrap();
+    }
+    assert!(
+        controller.workspace.questions["Q1"]
+            .remaining_gap
+            .is_empty()
+    );
 }

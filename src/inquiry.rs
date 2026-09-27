@@ -106,11 +106,14 @@ impl Inquiry {
                             question.sources.push(source.clone());
                         }
                     }
-                    if !previous.remaining_gap.is_empty()
+                    if *kind == AssignmentKind::IndependentResearch
+                        && !previous.remaining_gap.is_empty()
                         && previous.remaining_gap != question.remaining_gap
                     {
-                        question.remaining_gap =
-                            format!("{}\n{}", previous.remaining_gap, question.remaining_gap);
+                        question.remaining_gap = format!(
+                            "Other investigation reported: {}\n{}",
+                            previous.remaining_gap, question.remaining_gap
+                        );
                     }
                 }
             }
