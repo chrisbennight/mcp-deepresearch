@@ -71,6 +71,26 @@ impl Controller {
             self.kind = AssignmentKind::Synthesize;
             self.focus = "Use available evidence to produce the best partial answer; disclose unfinished research.".into();
         }
+        let mut context = if self.workspace.request.policy == ResearchPolicy::MultiAgent {
+            self.inquiry
+                .context(&self.workspace, self.kind, &self.focus)
+        } else {
+            self.workspace.context(&self.focus)
+        };
+        if matches!(
+            self.workspace.request.policy,
+            ResearchPolicy::QuestionDriven | ResearchPolicy::MultiAgent
+        ) {
+            let next_source = self
+                .workspace
+                .sources
+                .keys()
+                .filter_map(|id| id.strip_prefix('S')?.parse::<u64>().ok())
+                .max()
+                .unwrap_or(0)
+                .saturating_add(1);
+            context = format!("NEXT AVAILABLE NEW SOURCE ID: S{next_source}\n\n{context}");
+        }
         Some(Assignment {
             policy: self.workspace.request.policy,
             attachments: self.workspace.attachments.clone(),
@@ -91,12 +111,7 @@ impl Controller {
             focus: self.focus.clone(),
             strategy: self.strategy,
             format: self.workspace.request.format,
-            context: if self.workspace.request.policy == ResearchPolicy::MultiAgent {
-                self.inquiry
-                    .context(&self.workspace, self.kind, &self.focus)
-            } else {
-                self.workspace.context(&self.focus)
-            },
+            context,
             remaining_seconds,
             remaining_tool_calls,
         })

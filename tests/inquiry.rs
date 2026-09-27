@@ -269,3 +269,28 @@ async fn primary_research_can_resolve_a_reconnaissance_question() {
             .is_empty()
     );
 }
+
+#[test]
+fn revised_research_allocates_sources_after_retained_evidence() {
+    let mut original = Workspace::new("test".into(), request()).unwrap();
+    original.sources.insert(
+        "S10000".into(),
+        Source {
+            id: "S10000".into(),
+            url: "https://example.org/earlier".into(),
+            title: "Earlier evidence".into(),
+            excerpt: "Retained finding".into(),
+            needs_refresh: false,
+        },
+    );
+    original.status = Status::Completed;
+    let revised = original.revise("test", request()).unwrap();
+    let mut controller = Controller::new(revised, runtime::unix_seconds());
+    let assignment = controller.assignment(runtime::unix_seconds()).unwrap();
+    assert_eq!(assignment.number, 1);
+    assert!(
+        assignment
+            .context
+            .contains("NEXT AVAILABLE NEW SOURCE ID: S10001")
+    );
+}

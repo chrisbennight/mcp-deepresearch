@@ -410,7 +410,7 @@ fn prompt(assignment: &Assignment) -> String {
         ResearchPolicy::QuestionDriven | ResearchPolicy::MultiAgent
     ) {
         text.push_str(include_str!("../prompts/question-driven.md"));
-        text.push_str(&format!("\nAllocate NEW source IDs starting at S{} to keep independent investigations distinct. Preserve IDs of supplied sources.\n", assignment.number * 10_000));
+        text.push_str("\nAllocate NEW source IDs from the next available ID specified in the context, incrementing for each new source. Preserve IDs of supplied sources.\n");
         text.push_str(crate::inquiry::guidance(assignment.kind));
     }
     text
