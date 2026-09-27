@@ -53,7 +53,7 @@ class UpstreamContracts(unittest.TestCase):
     def test_deer_reference_is_private_and_numeric_samples_match_runner(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d)
-            for sample in ("1","temp"):
+            for sample in ("0001","temp"):
                 p=root/"physics"/sample
                 p.mkdir(parents=True)
                 (p/"query.md").write_text("Question")

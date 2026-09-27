@@ -258,7 +258,7 @@ def run(args):
         records.append({**m,"arm":agent_label(evaluation,m),"metrics":{k:values.get(k) for k in names},
             "judgment":{"consequential_errors":[],"unresolved":["Inspect upstream judgments; missing scores remain null."]}})
     write(output/"scores.json",dict(benchmark=suite["benchmark"],release=suite["release"],population=suite["population"],
-        environment=evaluation.get("environment","unspecified"),mode=evaluation["mode"],protocol=f"upstream-adapter-v1-{revision}",
+        environment=evaluation.get("environment","unspecified"),mode=evaluation["mode"],protocol=f"upstream-adapter-v1-{revision}"+(f"-{args.provider}" if suite["benchmark"]=="ragtime" else ""),
         judge_model=args.judge,judge_environment=args.judge_environment,qualification="upstream evaluator adapter; inspect recipe and input conversion; not an official submission",
         source_evaluation=str(Path(args.evaluation).resolve()),records=records))
     print(f"Upstream scores: {output/'scores.json'}")

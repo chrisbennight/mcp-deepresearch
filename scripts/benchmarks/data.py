@@ -56,9 +56,10 @@ def import_tasks(kind, path, ids=None, allow_noncommercial=False, topics=None):
             if not query.parent.name.isdecimal():
                 continue
             relative = query.parent.relative_to(path)
-            source_rows.append(dict(id=".".join(relative.parts), prompt=query.read_text(),
+            sample = str(int(relative.parts[1]))
+            source_rows.append(dict(id=relative.parts[0]+"."+sample, prompt=query.read_text(),
                 core_criteria=(query.parent/"core_criteria.md").read_text(),
-                domain=relative.parts[0], sample=relative.parts[1]))
+                domain=relative.parts[0], sample=sample))
     elif kind == "ragtime":
         paths = sorted(Path(path).glob("*.v3.json")) if Path(path).is_dir() else [Path(path)]
         source_rows = [read(p) for p in paths]
