@@ -61,6 +61,7 @@ impl Controller {
             self.focus = "Use available evidence to produce the best partial answer; disclose unfinished research.".into();
         }
         Some(Assignment {
+            policy: self.workspace.request.policy,
             attachments: self.workspace.attachments.clone(),
             deadline_unix_seconds: Some(
                 self.started_at
@@ -87,6 +88,31 @@ impl Controller {
 
     pub fn complete(&mut self, result: AssignmentResult) -> Result<(), ResearchError> {
         let next = self.workspace.apply(result)?;
+        if self.workspace.request.policy == ResearchPolicy::Adaptive {
+            match next {
+                NextAction::AskUser { question } => {
+                    self.workspace.status = Status::InputRequired { question }
+                }
+                NextAction::Investigate { question, strategy } => {
+                    self.focus = question;
+                    if let Some(strategy) = strategy {
+                        self.strategy = strategy;
+                    }
+                    self.kind = AssignmentKind::Investigate;
+                }
+                NextAction::Synthesize => {
+                    self.kind = AssignmentKind::Synthesize;
+                    self.focus = "Develop the answer from original evidence. Research missing premises when needed; preserve supported details. Finish when the important questions are answered, or explain the material limits.".into();
+                }
+                NextAction::Finish => {
+                    if self.workspace.draft.trim().is_empty() {
+                        return Err(ResearchError::Invalid("research returned no answer".into()));
+                    }
+                    self.workspace.status = Status::Completed;
+                }
+            }
+            return Ok(());
+        }
         if self.kind == AssignmentKind::Review {
             self.reviews += 1;
         }

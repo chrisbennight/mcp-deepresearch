@@ -5,6 +5,7 @@ fn request() -> ResearchRequest {
 }
 fn result() -> AssignmentResult {
     AssignmentResult {
+        questions: vec![],
         sources: vec![Source {
             id: "S1".into(),
             url: "https://example.org/durability".into(),

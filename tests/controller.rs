@@ -169,3 +169,47 @@ async fn cancellation_while_waiting_prevents_subsequent_clarification() {
     assert_eq!(control.workspace.status, Status::Cancelled);
     assert!(control.provide_input("Prioritize cost").is_err());
 }
+
+struct CompleteInvestigation;
+impl AgentRuntime for CompleteInvestigation {
+    async fn execute(
+        &self,
+        mut assignment: Assignment,
+        cancel: CancellationToken,
+    ) -> Result<AssignmentResult, RuntimeError> {
+        assignment.kind = AssignmentKind::CompleteResearch;
+        let mut answer = FixtureRuntime::default()
+            .execute(assignment, cancel)
+            .await?;
+        answer.questions.push(ResearchQuestion {
+            id: "recovery".into(),
+            question: "What survives restart?".into(),
+            important: true,
+            answer: "Completed workflow steps".into(),
+            sources: vec!["S1".into()],
+            remaining_gap: String::new(),
+        });
+        Ok(answer)
+    }
+}
+
+#[tokio::test]
+async fn adaptive_research_can_deliver_a_supported_answer_without_forced_rewriting() {
+    let mut control = controller(Strategy::Comparison);
+    control.workspace.request.policy = ResearchPolicy::Adaptive;
+    runtime::run(
+        &CompleteInvestigation,
+        &mut control,
+        CancellationToken::new(),
+    )
+    .await;
+    assert_eq!(control.workspace.status, Status::Completed);
+    assert_eq!(control.workspace.assignments_completed, 1);
+    assert!(control.workspace.report().contains("[S1]"));
+    assert!(
+        control
+            .workspace
+            .context("recovery")
+            .contains("What survives restart?")
+    );
+}

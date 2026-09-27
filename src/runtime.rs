@@ -99,6 +99,7 @@ impl AgentRuntime for FixtureRuntime {
             return Err(RuntimeError::Cancelled);
         }
         let mut result = AssignmentResult {
+            questions: vec![],
             sources: vec![], findings: vec![], uncertainties: vec!["These are invented fixture documents; no live research or quality assessment occurred.".into()],
             outline: vec![], draft: None, next: NextAction::Finish,
             usage: Usage { tool_calls: Some(0), ..Usage::default() },

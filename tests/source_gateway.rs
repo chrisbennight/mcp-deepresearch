@@ -187,7 +187,7 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
             tools: vec!["search".into(), "read".into()],
             file_origins: vec![],
         },
-        6,
+        7,
         stop.clone(),
         directory.clone(),
     )
@@ -214,12 +214,28 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
             .all(|tool| tool.annotations.as_ref().and_then(|a| a.read_only_hint) == Some(true))
     );
     let names: Vec<_> = advertised.into_iter().map(|t| t.name.to_string()).collect();
-    assert_eq!(names, vec!["search", "read", "read_source_material"]);
+    assert_eq!(
+        names,
+        vec![
+            "search",
+            "read",
+            "read_source_material",
+            "list_source_materials"
+        ]
+    );
     assert!(
         client
             .call_tool(CallToolRequestParams::new("admin"))
             .await
             .is_err()
+    );
+    let inventory = client
+        .call_tool(CallToolRequestParams::new("list_source_materials"))
+        .await
+        .unwrap();
+    assert_eq!(
+        inventory.structured_content.unwrap()["materials"][0]["material_id"],
+        "attachment-fixture"
     );
     let attachment = client
         .call_tool(

@@ -73,8 +73,30 @@ impl Default for Limits {
     }
 }
 
+/// Experimental policies share execution; staged remains the comparison control.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ResearchPolicy {
+    #[default]
+    Staged,
+    EvidenceAccess,
+    Adaptive,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
+pub struct ResearchQuestion {
+    pub id: String,
+    pub question: String,
+    pub important: bool,
+    pub answer: String,
+    pub sources: Vec<String>,
+    pub remaining_gap: String,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct ResearchRequest {
+    #[serde(default)]
+    pub policy: ResearchPolicy,
     pub objective: String,
     #[serde(default)]
     pub context: String,
@@ -197,6 +219,8 @@ pub struct TraceContext {
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct Assignment {
     #[serde(default)]
+    pub policy: ResearchPolicy,
+    #[serde(default)]
     pub attachments: Vec<Attachment>,
     #[serde(default)]
     pub deadline_unix_seconds: Option<u64>,
@@ -254,6 +278,8 @@ pub struct Usage {
 
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct AssignmentResult {
+    #[serde(default)]
+    pub questions: Vec<ResearchQuestion>,
     #[serde(default)]
     pub sources: Vec<Source>,
     #[serde(default)]

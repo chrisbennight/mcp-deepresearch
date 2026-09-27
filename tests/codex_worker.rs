@@ -16,11 +16,13 @@ fn config(script: &str) -> CodexConfig {
         work_root: root,
         sources: None,
         model: None,
+        reasoning_effort: None,
         max_workers: 1,
     }
 }
 fn assignment() -> Assignment {
     Assignment {
+        policy: ResearchPolicy::Staged,
         attachments: Vec::new(),
         deadline_unix_seconds: None,
         trace_context: TraceContext::default(),

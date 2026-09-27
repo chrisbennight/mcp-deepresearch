@@ -137,7 +137,17 @@ impl AssignmentSources {
         );
         let upstream = tokio::select! {
             _ = cancel.cancelled() => return Err(RuntimeError::Cancelled),
-            result = tokio::time::timeout(CALL_TIMEOUT, connect) => result.map_err(|_| failure("source discovery timed out"))?.map_err(|_| failure("source discovery failed: MCP 2026-07-28 is required"))?,
+            result = tokio::time::timeout(CALL_TIMEOUT, connect) => result.map_err(|_| failure("source discovery timed out"))?.map_err(|error| {
+                use rmcp::service::ClientInitializeError;
+                let detail = match error {
+                    ClientInitializeError::NoCompatibleProtocolVersion { .. } => "no compatible MCP version",
+                    ClientInitializeError::TransportError { .. } => "transport failed",
+                    ClientInitializeError::JsonRpcError(_) => "Gateway rejected discovery",
+                    ClientInitializeError::Cancelled => "discovery cancelled",
+                    _ => "unexpected discovery response",
+                };
+                failure(&format!("source discovery failed: {detail}"))
+            })?,
         };
         let available = tokio::select! {
             _ = cancel.cancelled() => return Err(RuntimeError::Cancelled),
@@ -166,12 +176,17 @@ impl AssignmentSources {
             tool.output_schema = None;
             tools.push(tool);
         }
-        if config.tools.iter().any(|n| n == "read_source_material") {
+        if config
+            .tools
+            .iter()
+            .any(|n| matches!(n.as_str(), "read_source_material" | "list_source_materials"))
+        {
             return Err(failure(
                 "read_source_material is reserved by the research host",
             ));
         }
         tools.push(serde_json::from_value(json!({"name":"read_source_material","description":"Read another section of source material already returned by a source tool, or retry its file delivery without repeating the research operation. Offsets count Unicode characters.","inputSchema":{"type":"object","properties":{"material_id":{"type":"string"},"offset":{"type":"integer","minimum":0}},"required":["material_id"],"additionalProperties":false},"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}})).expect("static tool schema"));
+        tools.push(serde_json::from_value(json!({"name":"list_source_materials","description":"List retained source material available in this investigation. Read a material by ID to recover original passages rather than relying on summaries.","inputSchema":{"type":"object","properties":{"offset":{"type":"integer","minimum":0}},"additionalProperties":false},"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}})).expect("static tool schema"));
         let token = uuid::Uuid::new_v4().to_string();
         let stop = cancel.child_token();
         let access = SourceAccess {
@@ -354,6 +369,39 @@ impl SourceAccess {
         serde_json::to_value(response).map_err(|_| failure("source response encoding failed"))
     }
     async fn call(&self, mut params: CallToolRequestParams) -> Result<Value, RuntimeError> {
+        if params.name == "list_source_materials" {
+            let offset = params
+                .arguments
+                .as_ref()
+                .and_then(|a| a.get("offset"))
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+                .min(usize::MAX as u64) as usize;
+            let mut materials: Vec<_> = self
+                .materials
+                .lock()
+                .await
+                .iter()
+                .map(|(id, material)| (id.clone(), material.path.clone()))
+                .collect();
+            materials.sort_by(|a, b| a.0.cmp(&b.0));
+            let total = materials.len();
+            let mut index = Vec::new();
+            for (id, path) in materials.into_iter().skip(offset).take(24) {
+                let text = match tokio::fs::read_to_string(path).await {
+                    Ok(text) => text.chars().take(600).collect::<String>(),
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                        "Material download is pending; retry read_source_material.".into()
+                    }
+                    Err(_) => return Err(failure("retained material index could not be read")),
+                };
+                index.push(json!({"material_id":id,"preview":text}));
+            }
+            index.sort_by(|a, b| a["material_id"].as_str().cmp(&b["material_id"].as_str()));
+            return Ok(
+                json!({"materials":index,"next_offset": if offset.saturating_add(24) < total { Some(offset+24) } else { None }}),
+            );
+        }
         if params.name == "read_source_material" {
             let arguments = params.arguments.unwrap_or_default();
             let id = arguments

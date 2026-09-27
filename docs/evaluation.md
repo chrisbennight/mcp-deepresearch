@@ -84,3 +84,10 @@ Restate/MCP walkthrough covers restart during clarification, cancellation, expir
 revoked transfer authority, report recovery, and revision. These are reliability tests,
 not evidence that the agent asks good questions or supports its conclusions. The live
 comparison and human review are the evidence needed to choose future research changes.
+
+## Scored evaluation and workflow experiments
+
+The [scored evaluation guide](scored-evaluation.md) supplies reference-backed cases,
+separate-session assessment, reviewed score import, and opt-in policy comparisons.
+The paired runner itself still leaves `quality_score` empty; assessments live in
+separate files so execution success cannot be mistaken for answer quality.
