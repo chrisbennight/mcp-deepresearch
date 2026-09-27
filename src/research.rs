@@ -82,11 +82,16 @@ pub enum ResearchPolicy {
     EvidenceAccess,
     Adaptive,
     Perspective,
+    QuestionDriven,
+    MultiAgent,
 }
 
 impl ResearchPolicy {
     pub fn allows_direct_completion(self) -> bool {
-        matches!(self, Self::Adaptive | Self::Perspective)
+        matches!(
+            self,
+            Self::Adaptive | Self::Perspective | Self::QuestionDriven
+        )
     }
 }
 
@@ -202,6 +207,10 @@ pub struct Finding {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AssignmentKind {
+    Reconnaissance,
+    PrimaryResearch,
+    IndependentResearch,
+    CoverageReview,
     CompleteResearch,
     Investigate,
     Synthesize,
@@ -278,6 +287,11 @@ pub enum NextAction {
 
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema, Default)]
 pub struct Usage {
+    /// Runtime-observed identity, never accepted from model output.
+    #[serde(default)]
+    pub session_id: Option<String>,
+    #[serde(default)]
+    pub elapsed_ms: Option<u64>,
     pub tool_calls: Option<u32>,
     pub input_tokens: Option<u64>,
     pub output_tokens: Option<u64>,
@@ -285,6 +299,8 @@ pub struct Usage {
 
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct AssignmentResult {
+    #[serde(default)]
+    pub research_plan: Option<ResearchPlan>,
     #[serde(default)]
     pub questions: Vec<ResearchQuestion>,
     #[serde(default)]
@@ -299,4 +315,11 @@ pub struct AssignmentResult {
     pub next: NextAction,
     #[serde(default)]
     pub usage: Usage,
+}
+
+/// Complementary investigations derived from the user's needs and source reconnaissance.
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
+pub struct ResearchPlan {
+    pub primary: String,
+    pub independent: String,
 }

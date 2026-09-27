@@ -19,6 +19,7 @@ fn case() -> Case {
         id: "contract".into(),
         single_session_policy: false,
         baseline_first: false,
+        order_offset: None,
         request: serde_json::from_value(
             serde_json::json!({"objective":"Compare the fixture alternatives"}),
         )
@@ -96,6 +97,7 @@ impl AgentRuntime for PartialDraft {
         _: CancellationToken,
     ) -> Result<AssignmentResult, RuntimeError> {
         Ok(AssignmentResult {
+            research_plan: None,
             questions: vec![],
             sources: vec![],
             findings: vec![],
@@ -200,5 +202,29 @@ async fn single_session_comparison_preserves_treatment_and_excludes_it_from_cont
     );
     assert_eq!(result.measurements[0].arm, "perspective");
     assert_eq!(result.measurements[1].arm, "single_session");
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn every_arm_gets_first_position_across_three_isolated_cells() {
+    let root = std::env::temp_dir().join(format!("research-order-{}", ResearchId::default()));
+    for (offset, expected) in ["multi_agent", "question_driven", "single_session"]
+        .into_iter()
+        .enumerate()
+    {
+        let mut selected = case();
+        selected.request.policy = ResearchPolicy::MultiAgent;
+        selected.order_offset = Some(offset);
+        let result = compare(
+            &Unavailable,
+            vec![selected],
+            "fixture",
+            &root,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(result.measurements[0].arm, expected);
+    }
     std::fs::remove_dir_all(root).unwrap();
 }

@@ -43,6 +43,8 @@ class PublishedContracts(unittest.TestCase):
         self.assertEqual(m["precision"], 1/3)
         self.assertEqual(m["recall"], .5)
         self.assertEqual(m["complete"], 0)
+        j["unresolved"] = ["An explanatory source could not be retrieved"]
+        self.assertEqual(set_metrics(j), m)
         j["matches"] = [[0, 0], [1, 0]]
         with self.assertRaises(ValueError): set_metrics(j)
 
@@ -79,6 +81,8 @@ class PublishedContracts(unittest.TestCase):
             for label, workspace, expected in (
                 ("partial", dict(draft="partial answer", notes=[]), True),
                 ("findings", dict(draft="", notes=[dict(text="Relevant finding")]), True),
+                ("question-answer", dict(draft="", notes=[], questions={"q":dict(answer="Collected answer")}), True),
+                ("unanswered", dict(draft="", notes=[], questions={"q":dict(answer="")}), False),
                 ("absent", dict(draft="", notes=[]), False),
             ):
                 (root/"answer.json").write_text(json.dumps(workspace))
@@ -106,6 +110,30 @@ class PublishedContracts(unittest.TestCase):
             saved = read_evaluation(root/"experiment/run-0-0/evaluation.json")
             self.assertEqual(saved["configuration"], "candidate")
             self.assertEqual(saved["environment"], "controlled")
+
+    def test_isolated_repeats_keep_all_three_order_positions(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root/"cases.json").write_text(json.dumps([dict(id="a", request=dict(policy="multi_agent", limits={}))]))
+            args = argparse.Namespace(cases=root/"cases.json", output=root/"experiment", repeats=3, mode="fixture", environment="test", configuration="test", binary="unused")
+            offsets = []
+            def finished(binary, arguments):
+                offsets.append(json.loads(arguments[-2].read_text())[0]["order_offset"])
+                cell = arguments[-1]
+                cell.mkdir()
+                (cell/"evaluation.json").write_text(json.dumps(dict(measurements=[], mode="fixture")))
+            with patch("benchmarks.runner.invoke", side_effect=finished):
+                run(args)
+            self.assertEqual(offsets, [0, 1, 2])
+
+    def test_unverified_workflow_retains_scores_without_entering_comparative_mean(self):
+        records = [dict(research_id=str(i), case="a", arm="multi", metrics={"recall":value}, outcome="completed", elapsed_ms=1000,
+                        comparison_eligible=eligible, judgment=dict(consequential_errors=[], unresolved=[]))
+                   for i, (value, eligible) in enumerate([(1, False), (.5, True)])]
+        cards = summarize([dict(benchmark="test", records=records)])
+        self.assertEqual(cards[0]["summary"][0]["task_macro_mean"], .5)
+        self.assertEqual(cards[0]["summary"][0]["excluded_workflow_attempts"], 1)
+        self.assertEqual(cards[0]["records"][0]["metrics"]["recall"], 1)
 
     def test_repeats_do_not_outweigh_tasks_and_judges_stay_separate(self):
         def record(rid, task, arm, value, outcome="completed"):

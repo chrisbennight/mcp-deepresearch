@@ -56,9 +56,18 @@ async fn reconnect_and_restart_reuse_completed_work_without_duplicate_processes(
         .unwrap();
     assert_eq!(result.usage.tool_calls, Some(1));
     assert_eq!(result.usage.input_tokens, Some(12));
+    assert_eq!(result.usage.session_id.as_deref(), Some("fixture-session"));
     let dir = config
         .work_root
         .join(format!("{}-1", assignment.research_id));
+    for artifact in [
+        "assignment.json",
+        "prompt.txt",
+        "result.json",
+        "findings.md",
+    ] {
+        assert!(dir.join(artifact).is_file(), "missing {artifact}");
+    }
     assert_eq!(
         std::fs::read_to_string(dir.join("launches.txt")).unwrap(),
         "started\n"

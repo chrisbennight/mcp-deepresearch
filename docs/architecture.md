@@ -114,3 +114,7 @@ domain-relevant question expansion, investigation, synthesis and substantive che
 They do not require separate sessions or another workflow engine. The implementation
 prompt is [perspective guidance](../prompts/perspective.md); its experimental boundary is
 recorded in the [study design](perspective-study.md).
+
+The opt-in `multi_agent` policy requires isolated initial investigations and independent
+review through the same controller/runtime seam. `question_driven` is its single-session
+method control. See [the research flow and artifacts](multi-agent-research.md).

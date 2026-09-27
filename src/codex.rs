@@ -405,6 +405,14 @@ fn prompt(assignment: &Assignment) -> String {
     if assignment.policy == ResearchPolicy::Perspective {
         text.push_str(include_str!("../prompts/perspective.md"));
     }
+    if matches!(
+        assignment.policy,
+        ResearchPolicy::QuestionDriven | ResearchPolicy::MultiAgent
+    ) {
+        text.push_str(include_str!("../prompts/question-driven.md"));
+        text.push_str("\nAllocate NEW source IDs from the next available ID specified in the context, incrementing for each new source. Preserve IDs of supplied sources.\n");
+        text.push_str(crate::inquiry::guidance(assignment.kind));
+    }
     text
 }
 
@@ -434,6 +442,7 @@ async fn run_process(
     slots: Arc<Semaphore>,
     progress: &watch::Sender<WorkerSnapshot>,
 ) -> Result<AssignmentResult, RuntimeError> {
+    let started = std::time::Instant::now();
     let remaining = assignment.time_remaining();
     if remaining.is_zero() {
         return Err(RuntimeError::TimedOut);
@@ -450,6 +459,12 @@ async fn run_process(
         .create(&dir)
         .map_err(storage_error)?;
     write_snapshot(&dir, &progress.borrow())?;
+    std::fs::write(
+        dir.join("assignment.json"),
+        serde_json::to_vec_pretty(&assignment).expect("assignment serializes"),
+    )
+    .map_err(storage_error)?;
+    std::fs::write(dir.join("prompt.txt"), prompt(&assignment)).map_err(storage_error)?;
     let schema_path = dir.join("schema.json");
     std::fs::write(
         &schema_path,
@@ -484,10 +499,15 @@ async fn run_process(
                 .collect();
             if assignment.policy != ResearchPolicy::Staged {
                 for number in 1..assignment.number {
-                    let previous = config
+                    let previous_assignment = config
                         .work_root
-                        .join(format!("{}-{number}", assignment.research_id))
-                        .join("sources");
+                        .join(format!("{}-{number}", assignment.research_id));
+                    if assignment.kind == AssignmentKind::IndependentResearch
+                        && !visible_to_independent(&previous_assignment)?
+                    {
+                        continue;
+                    }
+                    let previous = previous_assignment.join("sources");
                     match std::fs::read_dir(previous) {
                         Ok(entries) => {
                             for entry in entries {
@@ -693,6 +713,60 @@ async fn run_process(
     let mut result: AssignmentResult = serde_json::from_slice(&bytes)
         .map_err(|_| RuntimeError::Failed("worker returned an invalid research result".into()))?;
     usage.tool_calls = saw_events.then_some(tool_calls);
+    usage.session_id = progress.borrow().session_id.clone();
+    usage.elapsed_ms = Some(started.elapsed().as_millis().min(u64::MAX as u128) as u64);
     result.usage = usage;
+    std::fs::write(
+        dir.join("result.json"),
+        serde_json::to_vec_pretty(&result).expect("result serializes"),
+    )
+    .map_err(storage_error)?;
+    std::fs::write(
+        dir.join("findings.md"),
+        crate::inquiry::render_findings(&result),
+    )
+    .map_err(storage_error)?;
     Ok(result)
+}
+
+// Use recorded roles because clarification can consume several assignments before research.
+fn visible_to_independent(directory: &Path) -> Result<bool, RuntimeError> {
+    #[derive(Deserialize)]
+    struct Role {
+        kind: AssignmentKind,
+    }
+    let bytes = std::fs::read(directory.join("assignment.json")).map_err(storage_error)?;
+    let role: Role = serde_json::from_slice(&bytes)
+        .map_err(|_| RuntimeError::Failed("retained assignment role could not be read".into()))?;
+    Ok(matches!(
+        role.kind,
+        AssignmentKind::Reconnaissance | AssignmentKind::IndependentResearch
+    ))
+}
+
+#[cfg(test)]
+mod research_material_tests {
+    use super::*;
+    #[test]
+    fn independent_research_can_read_reconnaissance_after_clarification_but_not_peer_material() {
+        let root =
+            std::env::temp_dir().join(format!("research-material-{}", ResearchId::default()));
+        std::fs::create_dir(&root).unwrap();
+        for (number, kind, expected) in [
+            (1, AssignmentKind::Reconnaissance, true),
+            (2, AssignmentKind::Reconnaissance, true),
+            (3, AssignmentKind::PrimaryResearch, false),
+            (4, AssignmentKind::IndependentResearch, true),
+        ] {
+            let dir = root.join(number.to_string());
+            std::fs::create_dir(&dir).unwrap();
+            std::fs::write(
+                dir.join("assignment.json"),
+                serde_json::to_vec(&json!({"kind":kind})).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(visible_to_independent(&dir).unwrap(), expected);
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }

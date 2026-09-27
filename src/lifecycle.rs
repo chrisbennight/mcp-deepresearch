@@ -215,6 +215,10 @@ impl Research {
                 break;
             };
             state.stage = match assignment.kind {
+                AssignmentKind::Reconnaissance => "reconnaissance",
+                AssignmentKind::PrimaryResearch => "primary investigation",
+                AssignmentKind::IndependentResearch => "independent investigation",
+                AssignmentKind::CoverageReview => "coverage assessment",
                 AssignmentKind::CompleteResearch => "complete research",
                 AssignmentKind::Investigate => "investigate",
                 AssignmentKind::Synthesize => "write",

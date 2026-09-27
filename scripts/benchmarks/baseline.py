@@ -29,7 +29,7 @@ def add_arguments(commands, positive):
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--repeats", type=positive, default=1)
     p.add_argument("--configuration", default="subscription-perspective")
-    p.add_argument("--policy", choices=["staged", "evidence_access", "adaptive", "perspective"], default="perspective")
+    p.add_argument("--policy", choices=["staged", "evidence_access", "adaptive", "perspective", "question_driven", "multi_agent"], default="perspective")
     p.add_argument("--seconds", type=positive, default=1200)
     p.add_argument("--tool-calls", type=positive, default=80)
     q = commands.add_parser("score-baseline", help="grade saved baseline answers without repeating research")

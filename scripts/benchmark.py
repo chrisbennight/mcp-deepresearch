@@ -27,7 +27,7 @@ def main():
     prepare.add_argument("--topics", help="TREC topic TSV for nugget releases without query text")
     prepare.add_argument("--allow-noncommercial", action="store_true", help="operator confirms this use satisfies applicable noncommercial terms")
     prepare.add_argument("--environment", required=True, help="open-web or the specific permitted corpus/retrieval environment")
-    prepare.add_argument("--policy", choices=["staged", "evidence_access", "adaptive", "perspective"], default="perspective")
+    prepare.add_argument("--policy", choices=["staged", "evidence_access", "adaptive", "perspective", "question_driven", "multi_agent"], default="perspective")
     prepare.add_argument("--seconds", type=positive, default=1200)
     prepare.add_argument("--tool-calls", type=positive, default=80)
     run = commands.add_parser("run")

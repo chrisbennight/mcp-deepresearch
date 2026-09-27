@@ -22,11 +22,18 @@ pub struct Case {
     pub single_session_policy: bool,
     #[serde(default)]
     pub baseline_first: bool,
+    /// Explicit rotation for isolated experiment cells; overrides legacy ordering.
+    #[serde(default)]
+    pub order_offset: Option<usize>,
     pub request: ResearchRequest,
     pub assess: Vec<String>,
 }
 #[derive(Serialize, Deserialize)]
 pub struct Measurement {
+    #[serde(default)]
+    pub execution: Vec<ExecutionRecord>,
+    #[serde(default)]
+    pub workflow_verified: Option<bool>,
     pub case: String,
     pub outcome: String,
     pub arm: String,
@@ -50,17 +57,30 @@ pub struct Evaluation {
     pub note: String,
     pub measurements: Vec<Measurement>,
 }
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ExecutionRecord {
+    pub assignment: u32,
+    pub kind: AssignmentKind,
+    pub session_id: Option<String>,
+    pub elapsed_ms: u128,
+    pub outcome: String,
+}
+
 struct Observed<'a, R> {
     inner: &'a R,
     calls: AtomicU32,
     usage: Mutex<Usage>,
+    execution: Mutex<Vec<ExecutionRecord>>,
 }
 impl<'a, R> Observed<'a, R> {
     fn new(inner: &'a R) -> Self {
         Self {
             inner,
             calls: AtomicU32::new(0),
+            execution: Mutex::new(Vec::new()),
             usage: Mutex::new(Usage {
+                session_id: None,
+                elapsed_ms: None,
                 tool_calls: Some(0),
                 input_tokens: Some(0),
                 output_tokens: Some(0),
@@ -75,7 +95,23 @@ impl<R: AgentRuntime> AgentRuntime for Observed<'_, R> {
         cancel: CancellationToken,
     ) -> Result<AssignmentResult, RuntimeError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
+        let kind = assignment.kind;
+        let number = assignment.number;
+        let started = Instant::now();
         let result = self.inner.execute(assignment, cancel).await;
+        self.execution.lock().await.push(ExecutionRecord {
+            assignment: number,
+            kind,
+            session_id: result
+                .as_ref()
+                .ok()
+                .and_then(|r| r.usage.session_id.clone()),
+            elapsed_ms: started.elapsed().as_millis(),
+            outcome: match &result {
+                Ok(_) => "returned".into(),
+                Err(error) => error.to_string(),
+            },
+        });
         let mut total = self.usage.lock().await;
         if let Ok(result) = &result {
             total.tool_calls = total
@@ -119,15 +155,28 @@ pub async fn compare<R: AgentRuntime>(
             ResearchPolicy::EvidenceAccess => "evidence_access",
             ResearchPolicy::Adaptive => "adaptive",
             ResearchPolicy::Perspective => "perspective",
+            ResearchPolicy::QuestionDriven => "question_driven",
+            ResearchPolicy::MultiAgent => "multi_agent",
         };
-        let arms = if index % 2 == 0 && !case.baseline_first {
-            [policy_arm, "single_session"]
+        if case.request.policy == ResearchPolicy::MultiAgent && case.single_session_policy {
+            return Err("multi_agent cannot run as a single-session policy comparison".into());
+        }
+        let mut arms = if case.request.policy == ResearchPolicy::MultiAgent {
+            vec!["multi_agent", "question_driven", "single_session"]
         } else {
-            ["single_session", policy_arm]
+            vec![policy_arm, "single_session"]
         };
+        let rotation = case
+            .order_offset
+            .unwrap_or(index + usize::from(case.baseline_first))
+            % arms.len();
+        arms.rotate_left(rotation);
         for arm in arms {
             let observed = Observed::new(runtime);
             let mut request = case.request.clone();
+            if arm == "question_driven" {
+                request.policy = ResearchPolicy::QuestionDriven;
+            }
             if arm == "single_session" {
                 request.policy = ResearchPolicy::Staged;
             }
@@ -136,7 +185,10 @@ pub async fn compare<R: AgentRuntime>(
             let started = Instant::now();
             if cancel.is_cancelled() {
                 controller.workspace.status = Status::Cancelled;
-            } else if arm != "single_session" && !case.single_session_policy {
+            } else if arm != "single_session"
+                && arm != "question_driven"
+                && !case.single_session_policy
+            {
                 runtime::run(&observed, &mut controller, cancel.clone()).await;
             } else {
                 let mut assignment = controller
@@ -200,7 +252,12 @@ pub async fn compare<R: AgentRuntime>(
                     _ => "incomplete",
                 }
             };
+            let execution = observed.execution.into_inner();
+            let workflow_verified = (arm == "multi_agent")
+                .then(|| verify_multi_agent(&execution, &controller.workspace.status));
             measurements.push(Measurement {
+                execution,
+                workflow_verified,
                 outcome: outcome.into(),
                 case: case.id.clone(),
                 arm: arm.into(),
@@ -216,11 +273,48 @@ pub async fn compare<R: AgentRuntime>(
             });
         }
     }
-    let result=Evaluation {reasoning_effort:std::env::var("DEEPRESEARCH_REASONING_EFFORT").ok(),mode:mode.into(),model:std::env::var("DEEPRESEARCH_MODEL").unwrap_or_else(|_|"runtime default (record the resolved model for a publishable comparison)".into()),source_tools:std::env::var("DEEPRESEARCH_SOURCE_TOOLS").unwrap_or_default().split(',').filter(|s|!s.is_empty()).map(str::to_owned).collect(),note:"Quality and monetary cost are unscored. Fixture outputs establish only execution. Compare the saved answers blind using the case rubric; failures, input-required runs, and cancellation are not successful answers. Both arms use the same runtime, source tools and per-case wall/tool limits; structured work additionally has its assignment cap. Model context and provider-side caching may differ.".into(),measurements};
+    let result=Evaluation {reasoning_effort:std::env::var("DEEPRESEARCH_REASONING_EFFORT").ok(),mode:mode.into(),model:std::env::var("DEEPRESEARCH_MODEL").unwrap_or_else(|_|"runtime default (record the resolved model for a publishable comparison)".into()),source_tools:std::env::var("DEEPRESEARCH_SOURCE_TOOLS").unwrap_or_default().split(',').filter(|s|!s.is_empty()).map(str::to_owned).collect(),note:"Quality and monetary cost are unscored. Fixture outputs establish only execution. Compare the saved answers blind using the case rubric; failures, input-required runs, and cancellation are not successful answers. All arms use the same runtime, source tools and per-case wall/tool limits; multi-assignment workflows additionally have an assignment cap. Model context and provider-side caching may differ.".into(),measurements};
     tokio::fs::write(
         root.join("evaluation.json"),
         serde_json::to_vec_pretty(&result)?,
     )
     .await?;
     Ok(result)
+}
+
+/// Structural eligibility is separate from quality; a completed prompt is not a multi-agent run.
+pub fn verify_multi_agent(execution: &[ExecutionRecord], status: &Status) -> bool {
+    use AssignmentKind::*;
+    if *status != Status::Completed {
+        return false;
+    }
+    let required = [
+        Reconnaissance,
+        PrimaryResearch,
+        IndependentResearch,
+        CoverageReview,
+        Synthesize,
+        Review,
+    ];
+    let mut next = 0;
+    let mut sessions = std::collections::HashSet::new();
+    for record in execution {
+        if record.outcome != "returned" {
+            return false;
+        }
+        let Some(id) = record
+            .session_id
+            .as_ref()
+            .filter(|id| !id.trim().is_empty())
+        else {
+            return false;
+        };
+        if !sessions.insert(id) {
+            return false;
+        }
+        if next < required.len() && record.kind == required[next] {
+            next += 1;
+        }
+    }
+    next == required.len() && execution.last().is_some_and(|r| r.kind == Review)
 }
