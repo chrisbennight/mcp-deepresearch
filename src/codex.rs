@@ -454,11 +454,11 @@ async fn run_process(
     )
     .map_err(storage_error)?;
     let output_path = dir.join("answer.json");
-    let sources = if matches!(
+    let allows_source_tools = matches!(
         assignment.kind,
         AssignmentKind::Investigate | AssignmentKind::CompleteResearch
-    ) || assignment.policy != ResearchPolicy::Staged
-    {
+    ) || assignment.policy != ResearchPolicy::Staged;
+    let sources = if allows_source_tools {
         if let Some(source_config) = &config.sources {
             let mut source_config = source_config.clone();
             source_config.trace_context = assignment.trace_context.clone();
@@ -657,12 +657,7 @@ async fn run_process(
         if event["type"] == "item.started" && event["item"]["type"] == "mcp_tool_call" {
             tool_calls += 1;
             progress.send_modify(|s| s.tool_calls = tool_calls);
-            if tool_calls > assignment.remaining_tool_calls
-                || !matches!(
-                    assignment.kind,
-                    AssignmentKind::Investigate | AssignmentKind::CompleteResearch
-                )
-            {
+            if tool_calls > assignment.remaining_tool_calls || !allows_source_tools {
                 stop(&mut child).await?;
                 return Err(RuntimeError::Failed(
                     "worker exceeded its observed source-tool allowance".into(),

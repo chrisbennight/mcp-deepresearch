@@ -522,12 +522,16 @@ impl SourceAccess {
             .get(id)
             .cloned()
             .ok_or_else(|| failure("source material is not available to this assignment"))?;
-        let context = if material.remote.is_some() {
-            tokio::fs::read_to_string(material.path.with_extension("context.txt"))
-                .await
-                .map_err(|_| failure("source attribution is unavailable"))?
-        } else {
-            String::new()
+        let context = match tokio::fs::read_to_string(material.path.with_extension("context.txt"))
+            .await
+        {
+            Ok(context) => context,
+            Err(error)
+                if error.kind() == std::io::ErrorKind::NotFound && material.remote.is_none() =>
+            {
+                String::new()
+            }
+            Err(_) => return Err(failure("source attribution is unavailable")),
         };
         if !material.path.exists() {
             let file = material

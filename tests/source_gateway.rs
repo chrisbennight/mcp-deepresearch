@@ -301,6 +301,64 @@ async fn sources_use_current_discovery_host_file_transfer_and_call_budget() {
     assert!(text.contains("Fixture document attribution."));
     assert!(!text.contains("host-only"));
     assert_eq!(downloads.load(Ordering::SeqCst), 2);
+    let material_id = pending["material_id"].as_str().unwrap();
+    let reopened = AssignmentSources::start(
+        SourceConfig {
+            local_materials: vec![(
+                material_id.into(),
+                directory.join(format!("{material_id}.txt")),
+            )],
+            trace_context: mcp_deepresearch::research::TraceContext::default(),
+            endpoint: format!("{origin}/mcp"),
+            token: None,
+            tools: vec!["search".into(), "read".into()],
+            file_origins: vec![],
+        },
+        2,
+        stop.clone(),
+        directory.join("next-assignment"),
+    )
+    .await
+    .unwrap();
+    let reopened_client = ()
+        .serve_with_lifecycle(
+            StreamableHttpClientTransport::with_client(
+                reqwest::Client::new(),
+                StreamableHttpClientTransportConfig::with_uri(reopened.endpoint.clone())
+                    .auth_header(reopened.token.clone()),
+            ),
+            ClientLifecycleMode::Discover {
+                preferred_versions: vec![ProtocolVersion::V_2026_07_28],
+            },
+        )
+        .await
+        .unwrap();
+    for offset in [0, 17] {
+        let result = reopened_client
+            .call_tool(
+                CallToolRequestParams::new("read_source_material").with_arguments(
+                    json!({"material_id": material_id, "offset": offset})
+                        .as_object()
+                        .unwrap()
+                        .clone(),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_ne!(result.is_error, Some(true), "{result:?}");
+        assert_eq!(
+            result.structured_content.unwrap()["text"].as_str().unwrap(),
+            recovered["text"]
+                .as_str()
+                .unwrap()
+                .chars()
+                .skip(offset)
+                .collect::<String>()
+        );
+    }
+    reopened_client.cancel().await.unwrap();
+    drop(reopened);
+
     let oversized = client
         .call_tool(
             CallToolRequestParams::new("search")
