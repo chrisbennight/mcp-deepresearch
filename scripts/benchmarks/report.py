@@ -41,6 +41,8 @@ def summarize(reports):
                         task_values[r["case"]].append(value)
                 summary.append({"arm": arm, "metric": metric, "task_macro_mean": mean(mean(v) for v in task_values.values()) if task_values else None,
                     "scored_tasks": len(task_values), "observed_tasks": len({r["case"] for r in rs}), "attempts": len(rs),
+                    "scored_attempts": sum(r["metrics"].get(metric) is not None for r in rs),
+                    "missing_metric_attempts": sum(r["metrics"].get(metric) is None for r in rs),
                     "completed": sum(r["outcome"] == "completed" for r in rs), "mean_seconds": mean(r["elapsed_ms"]/1000 for r in rs),
                     "errors": sum(len(r["judgment"]["consequential_errors"]) for r in rs),
                     "unresolved": sum(len(r["judgment"]["unresolved"]) for r in rs)})
@@ -54,6 +56,7 @@ def summarize(reports):
                 common = sorted(av.keys() & bv.keys())
                 differences = [mean(av[k])-mean(bv[k]) for k in common]
                 paired.append({"metric": metric, "difference": f"{a} minus {b}", "paired_tasks": len(common),
+                    "missing_metric_attempts": {arm: sum(r["metrics"].get(metric) is None for r in records if r["arm"] == arm) for arm in (a, b)},
                     "mean_difference": mean(differences) if differences else None, "task_bootstrap_95_interval": interval(differences),
                     "note": "Conditional on tasks scored in both arms; inspect missingness before interpreting. Repeats averaged within task. Cross-benchmark overlap is not independent evidence."})
         results.append({"identity": dict(zip(("benchmark", "release", "protocol", "judge_model", "judge_environment", "judge_source_tools", "judge_effort", "judge_seconds", "judge_tool_calls", "batch_size", "environment", "mode"), identity)), "summary": summary, "paired": paired, "records": records})
@@ -105,11 +108,11 @@ def report(args):
     for e in result["experiments"]:
         lines.append(f"Experiment {e['configuration']}: assigned {e['assigned_attempts']}, observed {e['observed_attempts']}, graded {e['graded_attempts']}, completed {e['completed_attempts']} attempts.")
     for card in result["scorecards"]:
-        lines.extend(["", "## " + " / ".join(card["identity"].values()), "", "| Agent | Metric | Task mean | Scored/observed tasks | Completed/attempts | Mean seconds | Error findings | Unresolved findings |", "| --- | --- | --- | --- | --- | --- | --- | --- |"])
+        lines.extend(["", "## " + " / ".join(card["identity"].values()), "", "| Agent | Metric | Task mean | Scored/observed tasks | Scored metric/attempts | Completed/attempts | Mean seconds | Error findings | Unresolved findings |", "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"])
         for s in card["summary"]:
             value = "unresolved" if s["task_macro_mean"] is None else f"{s['task_macro_mean']:.4f}"
-            lines.append(f"| {s['arm']} | {s['metric']} | {value} | {s['scored_tasks']}/{s['observed_tasks']} | {s['completed']}/{s['attempts']} | {s['mean_seconds']:.1f} | {s['errors']} | {s['unresolved']} |")
+            lines.append(f"| {s['arm']} | {s['metric']} | {value} | {s['scored_tasks']}/{s['observed_tasks']} | {s['scored_attempts']}/{s['attempts']} | {s['completed']}/{s['attempts']} | {s['mean_seconds']:.1f} | {s['errors']} | {s['unresolved']} |")
         lines.extend(["", "Paired differences average repeated attempts within each task. Intervals resample tasks, not criteria; no interval is claimed for a single task.", ""])
         for p in card["paired"]:
-            lines.append(f"- {p['metric']}: {p['difference']}; difference {p['mean_difference']}; tasks {p['paired_tasks']}; interval {p['task_bootstrap_95_interval']}.")
+            lines.append(f"- {p['metric']}: {p['difference']}; difference {p['mean_difference']}; tasks {p['paired_tasks']}; interval {p['task_bootstrap_95_interval']}; missing metric attempts by arm {p['missing_metric_attempts']}.")
     Path(args.output).with_suffix(".md").write_text("\n".join(lines)+"\n")

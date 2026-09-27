@@ -31,11 +31,22 @@ def run(args):
             selected = output / f"case-{repeat}-{index}.json"
             write(selected, [{**case, "baseline_first": (repeat + index) % 2 == 1}])
             cell = output / f"run-{repeat}-{index}"
+            write(output / f"{cell.name}-conditions.json", dict(configuration=args.configuration, environment=args.environment, repeat=repeat, limits=case["request"]["limits"]))
             invoke(args.binary, ["evaluate", args.mode, selected, cell])
             evaluation = read(cell / "evaluation.json")
             evaluation.update(configuration=args.configuration, environment=args.environment, repeat=repeat,
                               limits=case["request"]["limits"])
             write(cell / "evaluation.json", evaluation)
+
+
+
+def read_evaluation(path):
+    path = Path(path)
+    evaluation = read(path)
+    conditions = path.parent.parent / f"{path.parent.name}-conditions.json"
+    if conditions.exists():
+        evaluation.update(read(conditions))
+    return evaluation
 
 
 def assess(binary, payload, root):
@@ -53,7 +64,7 @@ def agent_label(evaluation, measurement):
 
 
 def grade(args):
-    suite, evaluation = read(args.suite), read(args.evaluation)
+    suite, evaluation = read(args.suite), read_evaluation(args.evaluation)
     tasks = {t["id"]: t for t in suite["tasks"]}
     kind = suite["benchmark"]
     if kind not in ("drb2", "researchrubrics", "trec-rag", "deepsearchqa"):
@@ -97,7 +108,7 @@ def grade(args):
 
 
 def export(args):
-    suite, evaluation = read(args.suite), read(args.evaluation)
+    suite, evaluation = read(args.suite), read_evaluation(args.evaluation)
     output = Path(args.output)
     tasks = {t["id"]: t for t in suite["tasks"]}
     selected = [m for m in evaluation["measurements"] if m["arm"] == args.arm]
@@ -119,7 +130,7 @@ def export(args):
 
 def native_import(args):
     """Retain the complete upstream result, with a declared per-task metric mapping."""
-    evaluation = read(args.evaluation)
+    evaluation = read_evaluation(args.evaluation)
     suite = read(args.suite)
     upstream = rows(args.input)
     # Flat CSV/JSON per-task outputs are common upstream. Metric paths are explicit

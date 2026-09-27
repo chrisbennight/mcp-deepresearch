@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from .runner import grade, native_import
+from .runner import grade, native_import, run, read_evaluation
 from .data import import_tasks, prepare
 from .scoring import rubric_metrics, set_metrics
 from .report import summarize, report as build_report
@@ -79,14 +79,34 @@ class PublishedContracts(unittest.TestCase):
             native_import(args)
             self.assertEqual(json.loads(args.output.read_text())["environment"],"unspecified (legacy evaluation)")
 
+    def test_interrupted_attempt_retains_comparison_conditions(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root/"cases.json").write_text(json.dumps([dict(id="a", request=dict(limits={"seconds": 600}))]))
+            args = argparse.Namespace(cases=root/"cases.json", output=root/"experiment", repeats=1, mode="live", environment="controlled", configuration="candidate", binary="unused")
+            def interrupted(binary, arguments):
+                cell = arguments[-1]
+                cell.mkdir()
+                (cell/"evaluation.json").write_text(json.dumps(dict(measurements=[], mode="live")))
+                raise KeyboardInterrupt
+            with patch("benchmarks.runner.invoke", side_effect=interrupted):
+                with self.assertRaises(KeyboardInterrupt):
+                    run(args)
+            saved = read_evaluation(root/"experiment/run-0-0/evaluation.json")
+            self.assertEqual(saved["configuration"], "candidate")
+            self.assertEqual(saved["environment"], "controlled")
+
     def test_repeats_do_not_outweigh_tasks_and_judges_stay_separate(self):
         def record(rid, task, arm, value, outcome="completed"):
             return dict(research_id=rid, case=task, arm=arm, metrics={"recall":value}, outcome=outcome, elapsed_ms=5000, judgment=dict(consequential_errors=[], unresolved=[]))
-        r = dict(benchmark="x", release="a", protocol="adapted", judge_model="judge", environment="web", mode="live", records=[record("1", "a", "agent", 1), record("2", "a", "agent", 1), record("3", "b", "agent", 0, "incomplete"), record("4", "a", "control", .5), record("5", "b", "control", None)])
+        r = dict(benchmark="x", release="a", protocol="adapted", judge_model="judge", environment="web", mode="live", records=[record("1", "a", "agent", 1), record("2", "a", "agent", None), record("3", "b", "agent", 0, "incomplete"), record("4", "a", "control", .5), record("5", "b", "control", None)])
         cards = summarize([r])
         agent = next(x for x in cards[0]["summary"] if x["arm"] == "agent")
         self.assertEqual(agent["task_macro_mean"], .5)
         self.assertEqual(agent["completed"], 2)
+        self.assertEqual(agent["scored_attempts"], 2)
+        self.assertEqual(agent["missing_metric_attempts"], 1)
+        self.assertEqual(cards[0]["paired"][0]["missing_metric_attempts"], {"agent": 1, "control": 1})
         self.assertEqual(cards[0]["paired"][0]["paired_tasks"], 1)
         self.assertIsNone(cards[0]["paired"][0]["task_bootstrap_95_interval"])
         self.assertEqual(len(summarize([r, {**r,"judge_model":"different"}])), 2)
