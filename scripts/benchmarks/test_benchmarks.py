@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+from .runner import grade, native_import
 from .data import import_tasks, prepare
 from .scoring import rubric_metrics, set_metrics
 from .report import summarize
@@ -49,6 +51,33 @@ class PublishedContracts(unittest.TestCase):
             self.assertIn("SECRET REFERENCE", (root/"prepared/suite.json").read_text())
             source.write_text(source.read_text().replace("CC BY 4.0", "CC BY-NC 4.0"))
             with self.assertRaises(ValueError): import_tasks("drb2", source)
+
+    def test_score_identity_uses_recorded_run_environment(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            suite = dict(benchmark="deepsearchqa", release="test", environment="intended-corpus", population=["a"], tasks=[dict(id="a", prompt="Question", reference=dict(answer="answer", answer_type="Single Answer"))])
+            evaluation = dict(mode="live", model="researcher", environment="actual-corpus", measurements=[dict(research_id="answer", case="a", arm="single_session", outcome="completed", elapsed_ms=1000, usage={})])
+            for name, value in (("suite",suite),("evaluation",evaluation)):
+                (root/(name+".json")).write_text(json.dumps(value))
+            (root/"answer.md").write_text("answer")
+            (root/"upstream.csv").write_text("id,f1\na,1\n")
+            args = argparse.Namespace(suite=root/"suite.json", evaluation=root/"evaluation.json", output=root/"grade", binary="unused", seconds=600, tool_calls=24, batch_size=20, qualification="test")
+            with patch("benchmarks.runner.assess", return_value=dict(gold_items=["answer"], predicted_items=["answer"], matches=[[0,0]], reason="match", consequential_errors=[], unresolved=[])):
+                grade(args)
+            self.assertEqual(json.loads((root/"grade/scores.json").read_text())["environment"],"actual-corpus")
+            args.output=root/"native.json"
+            args.input=root/"upstream.csv"
+            args.arm="single_session"
+            args.id_column="id"
+            args.metrics=["f1=f1"]
+            args.protocol="upstream-test"
+            args.judge="judge"
+            native_import(args)
+            self.assertEqual(json.loads(args.output.read_text())["environment"],"actual-corpus")
+            del evaluation["environment"]
+            (root/"evaluation.json").write_text(json.dumps(evaluation))
+            native_import(args)
+            self.assertEqual(json.loads(args.output.read_text())["environment"],"unspecified (legacy evaluation)")
 
     def test_repeats_do_not_outweigh_tasks_and_judges_stay_separate(self):
         def record(rid, task, arm, value, outcome="completed"):
