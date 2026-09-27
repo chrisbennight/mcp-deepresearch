@@ -55,8 +55,13 @@ draft and question/finding handoffs. The context allowance selects additional so
 excerpts; required handoffs and the complete draft are not truncated to that allowance.
 Full retrieved material remains available through source tools.
 
-The controller requires the initial investigations and review before completion. Time,
-assignment or source exhaustion preserves partial work and is not approved completion.
+The controller requires the initial investigations and review before completion. When
+an execution limit prevents completion, partial work is preserved without approved
+completion. Reaching the source-call allowance alone does not invalidate sufficient
+collected evidence: remaining roles can assess and synthesize it. A requested targeted
+investigation without source calls remaining stops as exhausted. Execution verification
+does not certify that a no-call investigation or review was substantively adequate;
+that requires inspecting the handoffs and scoring the answer.
 The source allowance is aggregate across assignments; it is not multiplied per agent.
 There is no mandatory disagreement and no fixed number of review corrections. The
 request's overall limits remain authoritative. Extend an evaluation's allowances in a
