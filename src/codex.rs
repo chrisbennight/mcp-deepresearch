@@ -399,8 +399,11 @@ fn prompt(assignment: &Assignment) -> String {
         text = text.replace("For synthesis/review, use the supplied evidence; request a follow-up instead of claiming to have searched.", "All assignments can read retained source material and acquire missing evidence through the configured tools. Use list_source_materials to find earlier full passages.");
         text = text.replace("needs_refresh is false only for evidence you actually rechecked.", "Keep needs_refresh false for evidence retrieved during this investigation; mark inherited time-sensitive evidence for rechecking.");
     }
-    if assignment.policy == ResearchPolicy::Adaptive {
+    if assignment.policy.allows_direct_completion() {
         text.push_str("\nResearch policy: maintain a revisable list of questions needed to answer the user. Return that list in questions, with concise evidence-backed answers, source IDs, importance, and concrete remaining gaps (empty when resolved). Discover missing questions as you read. These records are working notes, not a claim of proof. Choose the next action by the most consequential gap. If existing material contains the answer, read it instead of repeating discovery. While composing, research missing premises and check that cited passages support the conclusion and its qualifications. Correct mistakes before returning the answer. Use targeted edits to preserve supported information. You may produce the final answer and finish in this session; no later mandatory writer or critic follows. Stop when further work is unlikely to materially improve the answer, disclosing unresolved important questions. For collections, distinguish discovering missing candidates from filling attributes; maintain candidate eligibility, missing cells, and supporting evidence in the questions and findings. Do not confuse filling known rows with finding all relevant rows. For other policies return an empty questions list when it is not useful.");
+    }
+    if assignment.policy == ResearchPolicy::Perspective {
+        text.push_str(include_str!("../prompts/perspective.md"));
     }
     text
 }

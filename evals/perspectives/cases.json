@@ -1,0 +1,128 @@
+[
+  {
+    "id": "marine-fastener",
+    "single_session_policy": true,
+    "request": {
+      "policy": "perspective",
+      "objective": "I have an A4 stainless M8 x 1.25 bolt and an aluminium bracket tapped M8 x 1.25. This is for a non-safety-critical fixture on a dock exposed to salt spray. Since the thread sizes match, is this a suitable replacement? Give me a practical answer, not a general survey of fasteners.",
+      "strategy": "focused",
+      "format": "answer",
+      "source_constraints": [
+        "Use primary sources when available and cite support for consequential claims. Research as of 27 September 2026, respecting any earlier cutoff in the request."
+      ],
+      "limits": {
+        "wall_seconds": 1200,
+        "max_assignments": 8,
+        "max_tool_calls": 80
+      }
+    },
+    "assess": [
+      "Correct, useful and appropriately scoped against a separately held reference; do not reward the number of perspectives."
+    ]
+  },
+  {
+    "id": "sqlite-direct",
+    "single_session_policy": true,
+    "request": {
+      "policy": "perspective",
+      "objective": "In SQLite WAL mode, connection A begins a read transaction and reads a row. Connection B changes that row and commits. Will A's next SELECT inside the same transaction see B's change? I only need the answer and any caveat directly relevant to this situation.",
+      "strategy": "focused",
+      "format": "answer",
+      "source_constraints": [
+        "Use primary sources when available and cite support for consequential claims. Research as of 27 September 2026, respecting any earlier cutoff in the request."
+      ],
+      "limits": {
+        "wall_seconds": 1200,
+        "max_assignments": 8,
+        "max_tool_calls": 80
+      }
+    },
+    "assess": [
+      "Correct, useful and appropriately scoped against a separately held reference; do not reward the number of perspectives."
+    ]
+  },
+  {
+    "id": "office-policy",
+    "single_session_policy": true,
+    "request": {
+      "policy": "perspective",
+      "objective": "Our software company wants everyone back in the office five days a week because face-to-face work should improve productivity. Is that a well-supported decision? Recommend an approach based on research available by 31 December 2024.",
+      "strategy": "comparison",
+      "format": "report",
+      "source_constraints": [
+        "Use primary sources when available and cite support for consequential claims. Research as of 27 September 2026, respecting any earlier cutoff in the request."
+      ],
+      "limits": {
+        "wall_seconds": 1200,
+        "max_assignments": 8,
+        "max_tool_calls": 80
+      }
+    },
+    "assess": [
+      "Correct, useful and appropriately scoped against a separately held reference; do not reward the number of perspectives."
+    ]
+  },
+  {
+    "id": "rent-policy",
+    "single_session_policy": true,
+    "request": {
+      "policy": "perspective",
+      "objective": "Our city wants to stop displacement. A rent cap seems like the obvious best policy because it keeps rents down. What should we consider before adopting one? Explain the evidence and give a recommendation without assuming that everyone's definition of best is the same. Use research available by 31 December 2024, not advice about a particular jurisdiction's current law.",
+      "strategy": "comparison",
+      "format": "report",
+      "source_constraints": [
+        "Use primary sources when available and cite support for consequential claims. Research as of 27 September 2026, respecting any earlier cutoff in the request."
+      ],
+      "limits": {
+        "wall_seconds": 1200,
+        "max_assignments": 8,
+        "max_tool_calls": 80
+      }
+    },
+    "assess": [
+      "Correct, useful and appropriately scoped against a separately held reference; do not reward the number of perspectives."
+    ]
+  },
+  {
+    "id": "long-context",
+    "single_session_policy": true,
+    "request": {
+      "policy": "perspective",
+      "objective": "Our internal document assistant can now fit the entire document collection in a long model context. Can we remove retrieval and just send all the documents each time? Assess this using research available by 31 December 2024 and tell us what would make that a good or bad decision.",
+      "strategy": "comparison",
+      "format": "report",
+      "source_constraints": [
+        "Use primary sources when available and cite support for consequential claims. Research as of 27 September 2026, respecting any earlier cutoff in the request."
+      ],
+      "limits": {
+        "wall_seconds": 1200,
+        "max_assignments": 8,
+        "max_tool_calls": 80
+      }
+    },
+    "assess": [
+      "Correct, useful and appropriately scoped against a separately held reference; do not reward the number of perspectives."
+    ]
+  },
+  {
+    "id": "citation-gate",
+    "single_session_policy": true,
+    "request": {
+      "policy": "perspective",
+      "objective": "We plan to accept research answers automatically whenever every citation URL exists and every paragraph has a citation. Would this be a good quality gate? Explain what it would and would not establish, and recommend a practical alternative using research published by 31 December 2024.",
+      "strategy": "focused",
+      "format": "report",
+      "source_constraints": [
+        "Use primary sources when available and cite support for consequential claims. Research as of 27 September 2026, respecting any earlier cutoff in the request."
+      ],
+      "limits": {
+        "wall_seconds": 1200,
+        "max_assignments": 8,
+        "max_tool_calls": 80
+      }
+    },
+    "assess": [
+      "Correct, useful and appropriately scoped against a separately held reference; do not reward the number of perspectives."
+    ]
+  }
+]

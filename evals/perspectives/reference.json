@@ -1,0 +1,187 @@
+{
+  "cases": [
+    {
+      "id": "marine-fastener",
+      "split": "development",
+      "objective": "I have an A4 stainless M8 x 1.25 bolt and an aluminium bracket tapped M8 x 1.25. This is for a non-safety-critical fixture on a dock exposed to salt spray. Since the thread sizes match, is this a suitable replacement? Give me a practical answer, not a general survey of fasteners.",
+      "sources": [
+        "https://www.assda.asn.au/publications/technical-faqs/galvanicdissimilar-metal-corrosion"
+      ],
+      "criteria": [
+        {
+          "id": "marine-fastener-1",
+          "expected": "Answers the fit question conditionally: matching nominal thread and pitch support thread compatibility but do not establish length, engagement, tolerance, strength, or suitability. Does not pretend to certify an unspecified assembly."
+        },
+        {
+          "id": "marine-fastener-2",
+          "expected": "Discovers galvanic corrosion as a relevant overlooked constraint: electrical contact between dissimilar metals plus a conducting electrolyte can accelerate attack on aluminium; does not confuse galvanic corrosion with galvanizing."
+        },
+        {
+          "id": "marine-fastener-3",
+          "expected": "Explains that actual risk depends on exposure and assembly, including wetness and relative cathode/anode area; does not categorically declare every stainless/aluminium pairing unusable."
+        },
+        {
+          "id": "marine-fastener-4",
+          "expected": "Gives practical mitigation or selection advice grounded in sources, such as isolating the contact and managing electrolyte ingress, while identifying remaining dimensions or load requirements rather than inventing a torque."
+        },
+        {
+          "id": "marine-fastener-5",
+          "expected": "Keeps the response proportionate and direct, with supporting technical sources. Does not invent opposing schools of thought or bury the replacement decision in unrelated material."
+        }
+      ]
+    },
+    {
+      "id": "sqlite-direct",
+      "split": "development",
+      "objective": "In SQLite WAL mode, connection A begins a read transaction and reads a row. Connection B changes that row and commits. Will A's next SELECT inside the same transaction see B's change? I only need the answer and any caveat directly relevant to this situation.",
+      "sources": [
+        "https://sqlite.org/isolation.html",
+        "https://sqlite.org/wal.html"
+      ],
+      "criteria": [
+        {
+          "id": "sqlite-direct-1",
+          "expected": "Answers no for the separate-connection transaction described, assuming its snapshot was established by the first read."
+        },
+        {
+          "id": "sqlite-direct-2",
+          "expected": "Explains that the read transaction retains its earlier snapshot rather than seeing a fresh snapshot on every SELECT."
+        },
+        {
+          "id": "sqlite-direct-3",
+          "expected": "Explains that ending the transaction and starting a new read transaction makes the committed change visible."
+        },
+        {
+          "id": "sqlite-direct-4",
+          "expected": "Does not import unrelated shared-cache dirty-read behavior as if it applied to the stated scenario, or incorrectly state that B cannot commit while A reads in WAL mode."
+        },
+        {
+          "id": "sqlite-direct-5",
+          "expected": "Provides an appropriately concise answer grounded in official SQLite documentation, without invented disagreement or unnecessary research directions."
+        }
+      ]
+    },
+    {
+      "id": "office-policy",
+      "split": "development",
+      "objective": "Our software company wants everyone back in the office five days a week because face-to-face work should improve productivity. Is that a well-supported decision? Recommend an approach based on research available by 31 December 2024.",
+      "sources": [
+        "https://www.nature.com/articles/s41586-024-07500-2",
+        "https://www.nature.com/articles/s41586-022-04643-y"
+      ],
+      "criteria": [
+        {
+          "id": "office-policy-1",
+          "expected": "Does not treat the intuitive premise as sufficient evidence for a universal five-day mandate; distinguishes hybrid, fully remote, and fully in-person arrangements."
+        },
+        {
+          "id": "office-policy-2",
+          "expected": "Uses relevant causal research accurately, such as the 2024 Trip.com randomized hybrid-work study: lower attrition without detected performance harm in its studied setting. Does not generalize that result to every company, occupation, or fully remote work."
+        },
+        {
+          "id": "office-policy-3",
+          "expected": "Investigates a material counterpoint such as collaboration, creative idea generation, onboarding, or mentoring using an identifiable study rather than inventing an opposing camp. Distinguishes task-specific findings from company-wide productivity."
+        },
+        {
+          "id": "office-policy-4",
+          "expected": "Considers more than one decision-relevant outcome, such as retention, performance, collaboration and employee or team differences; distinguishes measured results from value judgments or management preferences."
+        },
+        {
+          "id": "office-policy-5",
+          "expected": "Offers a context-sensitive recommendation and a way to test it locally, acknowledges study limitations and the requested cutoff, and avoids presenting one schedule as scientifically proven optimal everywhere."
+        }
+      ]
+    },
+    {
+      "id": "rent-policy",
+      "split": "development",
+      "objective": "Our city wants to stop displacement. A rent cap seems like the obvious best policy because it keeps rents down. What should we consider before adopting one? Explain the evidence and give a recommendation without assuming that everyone's definition of best is the same. Use research available by 31 December 2024, not advice about a particular jurisdiction's current law.",
+      "sources": [
+        "https://www.nber.org/papers/w24181"
+      ],
+      "criteria": [
+        {
+          "id": "rent-policy-1",
+          "expected": "Distinguishes protection for incumbent tenants from affordability and access for future tenants, and short-term displacement prevention from longer-term market outcomes."
+        },
+        {
+          "id": "rent-policy-2",
+          "expected": "Represents evidence for benefits to covered tenants accurately, using identifiable research rather than merely asserting that proponents exist."
+        },
+        {
+          "id": "rent-policy-3",
+          "expected": "Represents evidence about landlord response or rental supply accurately and with context. The San Francisco study reports reduced rental supply among treated landlords, not a universal effect size applying to all cities or policy designs."
+        },
+        {
+          "id": "rent-policy-4",
+          "expected": "Distinguishes empirical findings from objectives and distributional judgments, and identifies policy design or transfer limits; does not frame all rent regulations as one identical treatment or create false equivalence between evidence and unsupported assertion."
+        },
+        {
+          "id": "rent-policy-5",
+          "expected": "Provides a conditional recommendation addressing displacement and relevant complementary or alternative measures, with evidence qualifications rather than insisting that a single study determines the normative best outcome."
+        }
+      ]
+    },
+    {
+      "id": "long-context",
+      "split": "development",
+      "objective": "Our internal document assistant can now fit the entire document collection in a long model context. Can we remove retrieval and just send all the documents each time? Assess this using research available by 31 December 2024 and tell us what would make that a good or bad decision.",
+      "sources": [
+        "https://aclanthology.org/2024.emnlp-industry.66/",
+        "https://arxiv.org/abs/2307.03172"
+      ],
+      "criteria": [
+        {
+          "id": "long-context-1",
+          "expected": "Distinguishes context-window capacity from demonstrated effective use of all relevant information; does not infer that fitting text guarantees correct answers."
+        },
+        {
+          "id": "long-context-2",
+          "expected": "Accurately represents evidence favorable to long context and evidence favoring retrieval on cost or workload grounds; does not convert benchmark results into a universal winner."
+        },
+        {
+          "id": "long-context-3",
+          "expected": "Considers decision-relevant conditions such as collection size, question type, updating, latency and token usage, grounding empirical performance claims in research and labeling operational reasoning as such."
+        },
+        {
+          "id": "long-context-4",
+          "expected": "Identifies a plausible combined or conditional approach rather than treating the choice as an unavoidable binary; explains a material limitation of the evidence or transfer to the user's system."
+        },
+        {
+          "id": "long-context-5",
+          "expected": "Recommends matched evaluation on the intended workload with correctness and support assessed separately from runtime and cost, respecting the cutoff and avoiding an invented optimal configuration."
+        }
+      ]
+    },
+    {
+      "id": "citation-gate",
+      "split": "development",
+      "objective": "We plan to accept research answers automatically whenever every citation URL exists and every paragraph has a citation. Would this be a good quality gate? Explain what it would and would not establish, and recommend a practical alternative using research published by 31 December 2024.",
+      "sources": [
+        "https://arxiv.org/abs/2305.14627"
+      ],
+      "criteria": [
+        {
+          "id": "citation-gate-1",
+          "expected": "Distinguishes URL existence and citation presence from whether the cited material actually supports the claim."
+        },
+        {
+          "id": "citation-gate-2",
+          "expected": "Distinguishes citation support from factual truth, source reliability and adequate coverage of the user's question; avoids saying citation entailment alone proves correctness."
+        },
+        {
+          "id": "citation-gate-3",
+          "expected": "Grounds the assessment in relevant research such as ALCE without misreporting its citation metrics as universal truth or claiming its model judge is infallible."
+        },
+        {
+          "id": "citation-gate-4",
+          "expected": "Explains at least one concrete failure of the proposed gate beyond broken links, such as a real source cited for an unsupported claim, missing qualifications, or an answer that omits important information."
+        },
+        {
+          "id": "citation-gate-5",
+          "expected": "Recommends a proportionate check of consequential claims against source passages plus task coverage and handling of uncertainty, without promising zero errors or building an unnecessary provenance bureaucracy."
+        }
+      ]
+    }
+  ]
+}

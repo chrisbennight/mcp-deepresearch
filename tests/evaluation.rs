@@ -17,6 +17,7 @@ impl AgentRuntime for Unavailable {
 fn case() -> Case {
     Case {
         id: "contract".into(),
+        single_session_policy: false,
         request: serde_json::from_value(
             serde_json::json!({"objective":"Compare the fixture alternatives"}),
         )
@@ -144,5 +145,59 @@ async fn baseline_partial_drafts_do_not_hide_clarification_or_unfinished_work() 
                 .contains("Partial answer")
         );
     }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+struct RecordAssignments(std::sync::Mutex<Vec<(ResearchPolicy, AssignmentKind)>>);
+impl AgentRuntime for RecordAssignments {
+    async fn execute(
+        &self,
+        assignment: Assignment,
+        cancel: CancellationToken,
+    ) -> Result<AssignmentResult, RuntimeError> {
+        self.0
+            .lock()
+            .unwrap()
+            .push((assignment.policy, assignment.kind));
+        PartialDraft(NextAction::Finish)
+            .execute(assignment, cancel)
+            .await
+    }
+}
+
+#[tokio::test]
+async fn single_session_comparison_preserves_treatment_and_excludes_it_from_control() {
+    let root = std::env::temp_dir().join(format!("research-evaluation-{}", ResearchId::default()));
+    let runtime = RecordAssignments(std::sync::Mutex::new(Vec::new()));
+    let mut treatment = case();
+    treatment.request.policy = ResearchPolicy::Perspective;
+    treatment.single_session_policy = true;
+    let result = compare(
+        &runtime,
+        vec![treatment],
+        "fixture",
+        &root,
+        CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        *runtime.0.lock().unwrap(),
+        vec![
+            (
+                ResearchPolicy::Perspective,
+                AssignmentKind::CompleteResearch
+            ),
+            (ResearchPolicy::Staged, AssignmentKind::CompleteResearch),
+        ]
+    );
+    assert!(
+        result
+            .measurements
+            .iter()
+            .all(|m| m.runtime_calls == 1 && m.outcome == "completed")
+    );
+    assert_eq!(result.measurements[0].arm, "perspective");
+    assert_eq!(result.measurements[1].arm, "single_session");
     std::fs::remove_dir_all(root).unwrap();
 }

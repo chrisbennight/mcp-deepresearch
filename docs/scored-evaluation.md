@@ -95,13 +95,24 @@ strategy and output format. The default remains `staged` pending evidence.
   completion when an answer is ready. The worker can investigate gaps, compose,
   or finish without mandatory rewriting. Collection guidance distinguishes discovery
   of candidates from completion of their attributes.
+- `perspective`: adaptive research with domain-sensitive inquiry expansion. It uses
+  initial reading to discover consequential constraints, alternatives, disagreements,
+  and stakeholder objectives, revises questions as evidence arrives, and checks both
+  support and missing perspectives before delivering. Exact questions still receive
+  direct answers; the policy does not manufacture disagreement or require equal weight
+  for unequal evidence. See the [perspective study](perspective-study.md).
 
 Set `request.policy` on a copy of the case file. The paired single-session arm always
 uses the staged policy's ordinary single-session prompt, never the experimental
-policy guidance. Results identify `evidence_access` or `adaptive` explicitly. A
+policy guidance. Results identify each experimental policy explicitly. A
 single-session control built from a different code revision may have a different
 output schema; record the binary revision and use contemporaneous paired controls
 when attributing a change to the policy.
+
+A case can set `single_session_policy: true` to run both arms as one complete-research
+assignment. The treatment retains its policy guidance; the control receives the ordinary
+single-session prompt. This separates a prompt-policy comparison from workflow handoffs.
+A request for another assignment remains incomplete rather than being silently continued.
 
 These are deliberately limited experiments. The collection behavior uses research
 questions and findings; it is not yet a dedicated entity/attribute implementation.

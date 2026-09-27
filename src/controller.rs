@@ -91,13 +91,13 @@ impl Controller {
         // Adaptive completion explicitly delivers a complete answer to the original objective.
         if self.kind == AssignmentKind::Investigate
             && !self.workspace.draft.is_empty()
-            && !(self.workspace.request.policy == ResearchPolicy::Adaptive
+            && !(self.workspace.request.policy.allows_direct_completion()
                 && matches!(result.next, NextAction::Finish))
         {
             result.draft = None;
         }
         let next = self.workspace.apply(result)?;
-        if self.workspace.request.policy == ResearchPolicy::Adaptive {
+        if self.workspace.request.policy.allows_direct_completion() {
             match next {
                 NextAction::AskUser { question } => {
                     self.workspace.status = Status::InputRequired { question }

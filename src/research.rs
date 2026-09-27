@@ -81,6 +81,13 @@ pub enum ResearchPolicy {
     Staged,
     EvidenceAccess,
     Adaptive,
+    Perspective,
+}
+
+impl ResearchPolicy {
+    pub fn allows_direct_completion(self) -> bool {
+        matches!(self, Self::Adaptive | Self::Perspective)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
