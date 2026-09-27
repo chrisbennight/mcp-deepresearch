@@ -4,10 +4,12 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 from .data import import_tasks, read
 from .dsqa_api import metrics as autorater_metrics
 from .structure import sentences
-from .upstream import recipe, collect, jsonl
+from .upstream import recipe, collect, jsonl, run
+from .report import summarize
 
 
 def options(**changes):
@@ -23,6 +25,30 @@ class UpstreamContracts(unittest.TestCase):
         self.assertTrue(all(v is None for v in autorater_metrics(None).values()))
         ambiguous={"Answer Correctness":{"Correctness Details":{"A":True},"Excessive Answers":["B"]}}
         self.assertEqual(autorater_metrics(ambiguous,"Single Answer")["f1"],0)
+
+    def test_different_grading_prompts_keep_same_answer_in_separate_scorecards(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            task=dict(id="0",prompt="Question",reference=dict(answer="A",answer_type="Single Answer"),source_record={})
+            suite=root/"suite.json"
+            suite.write_text(json.dumps(dict(benchmark="deepsearchqa",release="test",population=["0"],tasks=[task])))
+            evaluation=root/"evaluation.json"
+            evaluation.write_text(json.dumps(dict(mode="fixture",measurements=[dict(case="0",research_id="run",arm="perspective",outcome="completed",elapsed_ms=1)])))
+            (root/"run.md").write_text("Answer A")
+            reports=[]
+            for i in range(2):
+                prompt=root/f"prompt-{i}.txt"
+                prompt.write_text(f"Recipe {i}: {{prompt}} {{prompt_type}} {{answer}} {{response}}")
+                output=root/f"output-{i}"
+                args=options(suite=suite,evaluation=evaluation,output=output,checkout=None,arm="perspective",autorater_prompt=prompt,judge_environment="same",execute=True)
+                def provider(command, log):
+                    (output/"autorater.json").write_text(json.dumps([dict(id="0",metrics=dict(f1=1))]))
+                with patch("benchmarks.upstream.execute",side_effect=provider):
+                    run(args)
+                reports.append(read(output/"scores.json"))
+            cards=summarize(reports)
+            self.assertEqual(len(cards),2)
+            self.assertTrue(all(c["summary"][0]["scored_tasks"]==1 for c in cards))
 
     def test_deer_reference_is_private_and_numeric_samples_match_runner(self):
         with tempfile.TemporaryDirectory() as d:

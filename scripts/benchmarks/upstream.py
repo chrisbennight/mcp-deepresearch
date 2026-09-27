@@ -5,6 +5,7 @@ runs upstream programs only when --execute acknowledges their provider usage.
 It never installs packages, acquires credentials or changes an upstream checkout.
 """
 import json
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -234,6 +235,7 @@ def run(args):
             raise ValueError(f"upstream entry point is absent: {entry}")
     if suite["benchmark"] == "deepsearchqa":
         template=Path(args.autorater_prompt).read_text()
+        revision="published-prompt-"+hashlib.sha256(template.encode()).hexdigest()
         template.format(prompt="question",prompt_type="Set Answer",answer="reference",response="candidate")
         (output/"autorater-prompt.txt").write_text(template)
         commands[0]["argv"][8]=str(output/"autorater-prompt.txt")

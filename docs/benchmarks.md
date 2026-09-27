@@ -145,7 +145,8 @@ uv run --no-project python scripts/benchmark.py upstream-run \
 
 Inspect the recipe, then repeat with `--execute` and a **new output directory**.
 Completed execution produces `scores.json` accepted by `report --scores` alongside
-adapted scores. Keep upstream logs and raw judgments with it. A failed stage exits
+adapted scores. DeepSearchQA prompt changes produce separate recipe identities.
+Keep upstream logs and raw judgments with it. A failed stage exits
 unsuccessfully and retains its inputs and completed artifacts; it is not a scored run.
 Evaluate repeats separately to prevent duplicate task IDs overwriting reports.
 Re-prepare older suites to retain the original fields required by upstream evaluators.
