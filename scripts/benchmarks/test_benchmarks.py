@@ -18,6 +18,14 @@ class PublishedContracts(unittest.TestCase):
         judged["items"][0]["score"] = None
         self.assertIsNone(rubric_metrics("researchrubrics", criteria, judged)["compliance"])
 
+    def test_missing_rubric_axis_does_not_hide_a_resolved_axis(self):
+        criteria = [dict(id="a", dimension="analysis", weight=5), dict(id="b", dimension="presentation", weight=2)]
+        judged = {"items": [dict(id="a", score=1, reason="supported", evidence="passage"), dict(id="b", score=None, reason="unresolved", evidence="")]}
+        metrics = rubric_metrics("researchrubrics", criteria, judged)
+        self.assertEqual(metrics["analysis"], 1)
+        self.assertIsNone(metrics["presentation"])
+        self.assertIsNone(metrics["compliance"])
+
     def test_published_nuggets_distinguish_partial_from_strict_coverage(self):
         criteria = [dict(id="a", dimension="vital", weight=1), dict(id="b", dimension="okay", weight=1)]
         judged = {"items": [dict(id="a", score=.5, reason="partial", evidence="passage"), dict(id="b", score=1, reason="full", evidence="passage")]}

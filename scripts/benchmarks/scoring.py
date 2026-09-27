@@ -43,7 +43,7 @@ def rubric_metrics(kind, criteria, judgment):
     else:
         def weighted(cs):
             denom = sum(max(0, c["weight"]) for c in cs)
-            if unresolved or not denom:
+            if not denom or any(items[c["id"]]["score"] is None for c in cs):
                 return None
             return sum(items[c["id"]]["score"] * c["weight"] for c in cs) / denom
         metrics = {"compliance": weighted(criteria)}
