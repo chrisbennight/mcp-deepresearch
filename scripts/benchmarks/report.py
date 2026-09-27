@@ -19,7 +19,7 @@ def summarize(reports):
     groups = defaultdict(list)
     seen = set()
     for report in reports:
-        identity = tuple(str(report.get(k, "")) for k in ("benchmark", "release", "protocol", "judge_model", "judge_effort", "judge_seconds", "judge_tool_calls", "batch_size", "environment", "mode"))
+        identity = tuple(str(report.get(k, "")) for k in ("benchmark", "release", "protocol", "judge_model", "judge_environment", "judge_source_tools", "judge_effort", "judge_seconds", "judge_tool_calls", "batch_size", "environment", "mode"))
         for record in report["records"]:
             key = (identity, record["research_id"])
             if key in seen:
@@ -56,7 +56,7 @@ def summarize(reports):
                 paired.append({"metric": metric, "difference": f"{a} minus {b}", "paired_tasks": len(common),
                     "mean_difference": mean(differences) if differences else None, "task_bootstrap_95_interval": interval(differences),
                     "note": "Conditional on tasks scored in both arms; inspect missingness before interpreting. Repeats averaged within task. Cross-benchmark overlap is not independent evidence."})
-        results.append({"identity": dict(zip(("benchmark", "release", "protocol", "judge_model", "judge_effort", "judge_seconds", "judge_tool_calls", "batch_size", "environment", "mode"), identity)), "summary": summary, "paired": paired, "records": records})
+        results.append({"identity": dict(zip(("benchmark", "release", "protocol", "judge_model", "judge_environment", "judge_source_tools", "judge_effort", "judge_seconds", "judge_tool_calls", "batch_size", "environment", "mode"), identity)), "summary": summary, "paired": paired, "records": records})
     return results
 
 
@@ -89,7 +89,7 @@ def report(args):
             elif metric in {"presentation", "compliance"} or "instruction" in metric:
                 dimension = "request_fit"
             if dimension and item["task_macro_mean"] is not None:
-                capabilities[dimension].append({"benchmark": card["identity"]["benchmark"], **item})
+                capabilities[dimension].append({"benchmark": card["identity"]["benchmark"], "scorecard": card["identity"], **item})
     result["capabilities"] = capabilities
     write(args.output, result)
     lines = ["# Research capability scorecard", "", result["note"], "",
@@ -97,7 +97,7 @@ def report(args):
         "Scores below are conditional on observed judgments. See assigned/observed/graded counts and the declared population before drawing a winner. A small sample is a demonstration, not a general ranking.", ""]
     lines.extend(["## Capability coverage", "", "| Capability | Available measurements |", "| --- | --- |"])
     for dimension, measurements in capabilities.items():
-        names = sorted({m["benchmark"] + ": " + m["metric"] for m in measurements})
+        names = sorted({m["benchmark"] + " / " + m["scorecard"]["protocol"] + " / " + m["scorecard"]["mode"] + ": " + m["metric"] for m in measurements})
         lines.append(f"| {dimension.replace('_', ' ')} | {', '.join(names) if names else 'Not measured in this report'} |")
     lines.append("")
     for coverage in result["coverage"]:

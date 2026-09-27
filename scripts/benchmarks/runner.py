@@ -90,6 +90,7 @@ def grade(args):
         write(output / "scores.json", {"benchmark": kind, "release": suite["release"], "population": suite["population"],
             "environment": evaluation.get("environment", "unspecified (legacy evaluation)"), "intended_environment": suite["environment"], "protocol": "adapted-runtime-v1", "judge_model": os.environ.get("DEEPRESEARCH_MODEL"),
             "judge_effort": os.environ.get("DEEPRESEARCH_REASONING_EFFORT"), "judge_seconds": args.seconds,
+            "judge_environment": args.judge_environment, "judge_source_tools": sorted(filter(None, (s.strip() for s in os.environ.get("DEEPRESEARCH_SOURCE_TOOLS", "").split(",")))),
             "judge_tool_calls": args.tool_calls, "batch_size": args.batch_size, "mode": evaluation["mode"],
             "source_evaluation": str(Path(args.evaluation).resolve()), "qualification": args.qualification,
             "note": "Published task criteria with a substituted judge/prompt. Not native leaderboard results; source checks are inspectable model judgments, not proof of correctness.", "records": records})
@@ -137,7 +138,7 @@ def native_import(args):
         records.append({"research_id": m["research_id"], "case": m["case"], "arm": agent_label(evaluation, m), "outcome": m["outcome"], "elapsed_ms": m["elapsed_ms"], "usage": m["usage"], "metrics": metrics,
             "judgment": {"consequential_errors": [], "unresolved": ["source-support detail is in upstream output; empty error list does not establish correctness"]}})
     write(args.output, {"benchmark": suite["benchmark"], "release": suite["release"], "population": suite["population"], "environment": evaluation.get("environment", "unspecified (legacy evaluation)"), "intended_environment": suite["environment"], "protocol": args.protocol,
-        "judge_model": args.judge, "mode": evaluation["mode"], "source_evaluation": str(Path(args.evaluation).resolve()),
+        "judge_model": args.judge, "judge_environment": args.judge_environment, "mode": evaluation["mode"], "source_evaluation": str(Path(args.evaluation).resolve()),
         "qualification": "external; see upstream recipe", "upstream_result": upstream, "records": records})
 
 

@@ -71,9 +71,12 @@ checks execution mechanics and remains labeled fixture; it is not a quality stud
 ```sh
 uv run --no-project python scripts/benchmark.py grade /private/eval/dsqa/suite.json \
   /private/eval/experiment/run-0-0/evaluation.json /private/eval/assessment \
-  --seconds 600 --tool-calls 24
+  --seconds 600 --tool-calls 24 --judge-environment kagi-open-web
 ```
 
+Use a nonsecret logical `--judge-environment` label for the actual grading source
+backend and collection. Source tool names are also recorded for adapted grading;
+never put credentials or credential-bearing endpoint URLs in a label.
 This runs fresh assessments without agent labels or timing. Graders can read sources,
 check extra consequential claims and report unresolved evidence. Rubric inputs are
 batched to bound individual assignments, with every published criterion accounted for.
@@ -112,7 +115,8 @@ uv run --no-project python scripts/benchmark.py native-import \
   /private/eval/drb2/suite.json /private/eval/experiment/run-0-0/evaluation.json \
   /private/eval/upstream-scores.csv /private/eval/native-scores.json \
   --arm perspective --id-column idx --metrics analysis=model-name \
-  --protocol upstream-release-and-recipe --judge upstream-model
+  --protocol upstream-release-and-recipe --judge upstream-model \
+  --judge-environment upstream-source-environment
 ```
 
 Missing task scores remain null. Giving a recipe name does not certify protocol

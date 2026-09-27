@@ -7,7 +7,7 @@ from unittest.mock import patch
 from .runner import grade, native_import
 from .data import import_tasks, prepare
 from .scoring import rubric_metrics, set_metrics
-from .report import summarize
+from .report import summarize, report as build_report
 
 
 class PublishedContracts(unittest.TestCase):
@@ -61,7 +61,7 @@ class PublishedContracts(unittest.TestCase):
                 (root/(name+".json")).write_text(json.dumps(value))
             (root/"answer.md").write_text("answer")
             (root/"upstream.csv").write_text("id,f1\na,1\n")
-            args = argparse.Namespace(suite=root/"suite.json", evaluation=root/"evaluation.json", output=root/"grade", binary="unused", seconds=600, tool_calls=24, batch_size=20, qualification="test")
+            args = argparse.Namespace(suite=root/"suite.json", evaluation=root/"evaluation.json", output=root/"grade", binary="unused", seconds=600, tool_calls=24, batch_size=20, qualification="test", judge_environment="grader-web")
             with patch("benchmarks.runner.assess", return_value=dict(gold_items=["answer"], predicted_items=["answer"], matches=[[0,0]], reason="match", consequential_errors=[], unresolved=[])):
                 grade(args)
             self.assertEqual(json.loads((root/"grade/scores.json").read_text())["environment"],"actual-corpus")
@@ -90,6 +90,18 @@ class PublishedContracts(unittest.TestCase):
         self.assertEqual(cards[0]["paired"][0]["paired_tasks"], 1)
         self.assertIsNone(cards[0]["paired"][0]["task_bootstrap_95_interval"])
         self.assertEqual(len(summarize([r, {**r,"judge_model":"different"}])), 2)
+        self.assertEqual(len(summarize([r, {**r,"judge_environment":"other-corpus"}])), 2)
+        self.assertEqual(len(summarize([r, {**r,"judge_source_tools":["other-read"]}])), 2)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = []
+            for i, recipe in enumerate(("native-example", "adapted-example")):
+                path = root / f"scores-{i}.json"
+                path.write_text(json.dumps({**r, "protocol": recipe, "population": ["a", "b"]}))
+                paths.append(path)
+            build_report(argparse.Namespace(scores=paths, experiments=[], output=root/"summary.json"))
+            profile = json.loads((root/"summary.json").read_text())["capabilities"]["information_coverage"]
+            self.assertEqual({m["scorecard"]["protocol"] for m in profile}, {"native-example", "adapted-example"})
         with self.assertRaises(ValueError): summarize([r, r])
 
 
