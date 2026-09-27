@@ -1,0 +1,33 @@
+services:
+  restate:
+    image: docker.restate.dev/restatedev/restate:1.7.0@sha256:1ffcff010a4a857553ab9fe3e6efa2a1086e7954768e1f3fbfb243ce0ffe28c2
+    ports:
+      - "127.0.0.1:9070:9070"
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - restate-data:/restate-data
+    restart: unless-stopped
+  research:
+    build:
+      context: .
+      target: runtime
+    init: true
+    environment:
+      DEEPRESEARCH_PRINCIPAL: local-operator
+      DEEPRESEARCH_INBOUND_TOKEN: ${DEEPRESEARCH_INBOUND_TOKEN:?Set the local gateway-hop token in your environment}
+      DEEPRESEARCH_RESTATE_INGRESS: http://restate:8080
+      DEEPRESEARCH_FILE_ORIGIN: http://127.0.0.1:8088
+      DEEPRESEARCH_ALLOWED_HOSTS: localhost,127.0.0.1
+    ports:
+      - "127.0.0.1:8088:8088"
+    volumes:
+      - research-data:/workspaces
+    depends_on:
+      - restate
+    mem_limit: 2g
+    pids_limit: 128
+    stop_grace_period: 30s
+    restart: unless-stopped
+volumes:
+  restate-data:
+  research-data:

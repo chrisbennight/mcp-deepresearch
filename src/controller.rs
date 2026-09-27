@@ -120,6 +120,9 @@ impl Controller {
                         self.kind = AssignmentKind::Review;
                         self.focus = "Check question coverage, consequential citation support, serious alternatives and uncertainty. Request only a specific follow-up that could change the answer; otherwise finish.".into();
                     }
+                    AssignmentKind::CompleteResearch => {
+                        self.workspace.status = Status::Completed;
+                    }
                     AssignmentKind::Review => {
                         if self.reviews >= 2 && !matches!(next, NextAction::Finish) {
                             self.workspace.uncertainties.push(

@@ -1,0 +1,14 @@
+services:
+  research:
+    build:
+      target: live
+    command: ["serve", "live", "/workspaces"]
+    environment:
+      DEEPRESEARCH_CODEX_HOME: /home/research/.codex
+      DEEPRESEARCH_GATEWAY_URL: ${DEEPRESEARCH_GATEWAY_URL:?Set the current MCP source gateway URL}
+      DEEPRESEARCH_SOURCE_TOOLS: ${DEEPRESEARCH_SOURCE_TOOLS:?Set the read-only source tool names}
+      DEEPRESEARCH_SOURCE_TOKEN: ${DEEPRESEARCH_SOURCE_TOKEN:?Set the separately scoped source credential}
+      DEEPRESEARCH_MODEL: ${DEEPRESEARCH_MODEL:?Select the account-supported model}
+      DEEPRESEARCH_MAX_WORKERS: "1"
+    volumes:
+      - ${DEEPRESEARCH_CODEX_HOME:?Set a dedicated authenticated Codex home}:/home/research/.codex

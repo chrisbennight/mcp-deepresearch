@@ -532,7 +532,8 @@ pub fn router(
     Ok(Router::new()
         .nest_service("/mcp", transport)
         .layer(middleware::from_fn_with_state(config, authenticate))
-        .merge(files.router()))
+        .merge(files.router())
+        .route("/health", axum::routing::get(|| async { StatusCode::OK })))
 }
 async fn authenticate(
     State(config): State<ServiceConfig>,

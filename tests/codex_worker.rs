@@ -131,10 +131,20 @@ async fn cancellation_stops_the_running_process_group_before_acknowledgment() {
     let dir = config.work_root.join(format!("{id}-1"));
     for file in ["parent.pid", "descendant.pid"] {
         let pid = std::fs::read_to_string(dir.join(file)).unwrap();
-        if let Ok(stat) = std::fs::read_to_string(format!("/proc/{}/stat", pid.trim())) {
-            // A reparented zombie has stopped executing, even before init reaps it.
-            assert_eq!(stat.split_whitespace().nth(2), Some("Z"));
-        }
+        // SIGKILL prevents further user execution, but the kernel may still be
+        // completing process exit when the reaped group leader returns.
+        tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                match std::fs::read_to_string(format!("/proc/{}/stat", pid.trim())) {
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => break,
+                    Ok(stat) if stat.split_whitespace().nth(2) == Some("Z") => break,
+                    Ok(_) => tokio::time::sleep(Duration::from_millis(10)).await,
+                    Err(error) => panic!("could not observe process termination: {error}"),
+                }
+            }
+        })
+        .await
+        .expect("cancelled descendant did not finish exiting");
     }
     std::fs::remove_dir_all(config.work_root).unwrap();
 }

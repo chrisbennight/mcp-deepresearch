@@ -444,7 +444,10 @@ async fn run_process(
     )
     .map_err(storage_error)?;
     let output_path = dir.join("answer.json");
-    let sources = if assignment.kind == AssignmentKind::Investigate {
+    let sources = if matches!(
+        assignment.kind,
+        AssignmentKind::Investigate | AssignmentKind::CompleteResearch
+    ) {
         if let Some(source_config) = &config.sources {
             let mut source_config = source_config.clone();
             source_config.trace_context = assignment.trace_context.clone();
@@ -497,6 +500,8 @@ async fn run_process(
             "features.shell_tool=false",
             "-c",
             "features.multi_agent=false",
+            "-c",
+            "features.mcp_2026_07_28=true",
             "-c",
             "web_search=\"disabled\"",
             "-c",
@@ -611,7 +616,10 @@ async fn run_process(
             tool_calls += 1;
             progress.send_modify(|s| s.tool_calls = tool_calls);
             if tool_calls > assignment.remaining_tool_calls
-                || assignment.kind != AssignmentKind::Investigate
+                || !matches!(
+                    assignment.kind,
+                    AssignmentKind::Investigate | AssignmentKind::CompleteResearch
+                )
             {
                 stop(&mut child).await?;
                 return Err(RuntimeError::Failed(

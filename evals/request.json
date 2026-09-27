@@ -1,0 +1,13 @@
+{
+  "objective": "Explain how a current MCP 2026-07-28 client should handle a long-running tool task that requests clarification. Identify the relevant methods and cite the specification.",
+  "strategy": "focused",
+  "format": "answer",
+  "source_constraints": [
+    "Prefer the official MCP specification; distinguish current behavior from older versions."
+  ],
+  "limits": {
+    "wall_seconds": 300,
+    "max_assignments": 6,
+    "max_tool_calls": 24
+  }
+}

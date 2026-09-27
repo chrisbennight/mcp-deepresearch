@@ -6,7 +6,8 @@ cited answers developed through search, reading, comparison, and focused follow-
 This is an early implementation. A fixture-backed controller can investigate, write,
 and review a cited answer without credentials. The MCP service uses Restate for durable
 execution, clarification, cancellation, and revision. A configured Codex adapter is
-available for live assignments; integrated live verification is still pending.
+available for live assignments. Actual Codex/current-MCP compatibility is verified
+against a local fixture source; live Kagi research and quality evaluation remain pending.
 See the [service guide](docs/service.md). Progress is tracked in the
 [implementation epic](https://github.com/chrisbennight/mcp-deepresearch/issues/1).
 
@@ -68,3 +69,10 @@ material, and native file delivery without exposing transfer credentials to the 
 
 [Native files](docs/files.md) support text attachments and full Markdown reports
 without carrying file bytes in JSON-RPC or model context.
+
+## Run the complete service
+
+Follow the [Docker deployment and native MCP walkthrough](docs/deployment.md) for
+upload, durable execution, task inspection, and report download. Use the
+[paired evaluation](docs/evaluation.md) to compare structured research with a
+single-session baseline; fixture success is not a research-quality result.

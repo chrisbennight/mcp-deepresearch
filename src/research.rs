@@ -173,6 +173,7 @@ pub struct Finding {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AssignmentKind {
+    CompleteResearch,
     Investigate,
     Synthesize,
     Review,

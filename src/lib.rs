@@ -8,5 +8,7 @@ pub mod sources;
 
 pub mod lifecycle;
 
+pub mod evaluation;
 pub mod files;
 pub mod mcp;
+pub mod walkthrough;

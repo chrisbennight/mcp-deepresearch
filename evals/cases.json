@@ -1,0 +1,22 @@
+[
+  {
+    "id": "focused-protocol",
+    "request": {"objective":"Explain how a current MCP 2026-07-28 client should handle a long-running tool task that requests clarification. Identify the relevant methods and cite the specification.","strategy":"focused","format":"answer","source_constraints":["Prefer the official MCP specification; distinguish current behavior from older versions."],"limits":{"wall_seconds":300,"max_assignments":6,"max_tool_calls":24}},
+    "assess":["Correct protocol generation and method names","Citations support the requested input and terminal result behavior","No invented compatibility claims"]
+  },
+  {
+    "id": "field-overview",
+    "request":{"objective":"Explain the main approaches to making deep research agents recover from interruption without losing useful evidence. Distinguish workflow durability from recovery of an external agent process.","strategy":"exploration","format":"report","source_constraints":["Use public primary technical sources and relevant research papers."],"limits":{"wall_seconds":300,"max_assignments":6,"max_tool_calls":24}},
+    "assess":["Covers distinct approaches and their limits","Separates source observations from recommendations","Identifies conditions that change the architecture choice"]
+  },
+  {
+    "id": "decision-comparison",
+    "request":{"objective":"Compare Restate and Windmill for a small team's deep research service. Prioritize restart behavior, execution visibility, Rust integration, and operational complexity. Recommend a choice and state what would change it.","strategy":"comparison","format":"report","source_constraints":["Use current official documentation for product capabilities; label inferred tradeoffs."],"limits":{"wall_seconds":300,"max_assignments":6,"max_tool_calls":24}},
+    "assess":["Alternatives assessed on consistent user-relevant criteria","Consequential feature claims supported by primary sources","Recommendation follows evidence and acknowledges material disadvantages"]
+  },
+  {
+    "id": "benchmark-collection",
+    "request":{"objective":"Find five publicly documented benchmarks relevant to deep research agents. Make a table with task type, what is scored, source access, and important capabilities the benchmark does not measure. Do not claim the collection is exhaustive.","strategy":"collection","format":"table","source_constraints":["Cite benchmark papers or official benchmark repositories. Mark unavailable details as unknown."],"limits":{"wall_seconds":300,"max_assignments":6,"max_tool_calls":24}},
+    "assess":["Distinct relevant candidates rather than duplicate names","Missing attributes exposed instead of guessed","Benchmark scope and limitations accurately distinguished"]
+  }
+]
