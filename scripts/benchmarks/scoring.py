@@ -63,8 +63,7 @@ def set_metrics(judgment):
         raise ValueError("answer matches must be one-to-one")
     if any(not isinstance(a, int) or not isinstance(b, int) or not 0 <= a < len(gold) or not 0 <= b < len(predicted) for a, b in matches):
         raise ValueError("answer match outside supplied sets")
-    if judgment["unresolved"]:
-        return dict.fromkeys(("precision", "recall", "f1", "complete"))
+    # These metrics measure reference-set agreement; evidence concerns remain in the judgment.
     tp = len(matches)
     p, r = (tp / len(predicted) if predicted else 0), tp / len(gold)
     return {"precision": p, "recall": r, "f1": 2*p*r/(p+r) if p+r else 0, "complete": float(tp == len(gold) == len(predicted))}

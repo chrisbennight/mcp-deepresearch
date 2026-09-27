@@ -43,6 +43,8 @@ class PublishedContracts(unittest.TestCase):
         self.assertEqual(m["precision"], 1/3)
         self.assertEqual(m["recall"], .5)
         self.assertEqual(m["complete"], 0)
+        j["unresolved"] = ["An explanatory source could not be retrieved"]
+        self.assertEqual(set_metrics(j), m)
         j["matches"] = [[0, 0], [1, 0]]
         with self.assertRaises(ValueError): set_metrics(j)
 
@@ -108,6 +110,21 @@ class PublishedContracts(unittest.TestCase):
             saved = read_evaluation(root/"experiment/run-0-0/evaluation.json")
             self.assertEqual(saved["configuration"], "candidate")
             self.assertEqual(saved["environment"], "controlled")
+
+    def test_isolated_repeats_keep_all_three_order_positions(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root/"cases.json").write_text(json.dumps([dict(id="a", request=dict(policy="multi_agent", limits={}))]))
+            args = argparse.Namespace(cases=root/"cases.json", output=root/"experiment", repeats=3, mode="fixture", environment="test", configuration="test", binary="unused")
+            offsets = []
+            def finished(binary, arguments):
+                offsets.append(json.loads(arguments[-2].read_text())[0]["order_offset"])
+                cell = arguments[-1]
+                cell.mkdir()
+                (cell/"evaluation.json").write_text(json.dumps(dict(measurements=[], mode="fixture")))
+            with patch("benchmarks.runner.invoke", side_effect=finished):
+                run(args)
+            self.assertEqual(offsets, [0, 1, 2])
 
     def test_unverified_workflow_retains_scores_without_entering_comparative_mean(self):
         records = [dict(research_id=str(i), case="a", arm="multi", metrics={"recall":value}, outcome="completed", elapsed_ms=1000,

@@ -30,7 +30,7 @@ def run(args):
         for index, case in enumerate(cases):
             file_id(case["id"])
             selected = output / f"case-{repeat}-{index}.json"
-            write(selected, [{**case, "baseline_first": (repeat + index) % 2 == 1}])
+            write(selected, [{**case, "order_offset": repeat + index}])
             cell = output / f"run-{repeat}-{index}"
             write(output / f"{cell.name}-conditions.json", dict(configuration=args.configuration, environment=args.environment, repeat=repeat, limits=case["request"]["limits"]))
             invoke(args.binary, ["evaluate", args.mode, selected, cell])
@@ -107,12 +107,12 @@ def grade(args):
             "elapsed_ms": measurement["elapsed_ms"], "usage": measurement["usage"], "metrics": metrics, "judgment": judgment, "graded": has_answer, "workflow_verified": measurement.get("workflow_verified"), "comparison_eligible": workflow_valid}
         records.append(record)
         write(output / "scores.json", {"benchmark": kind, "release": suite["release"], "population": suite["population"],
-            "environment": evaluation.get("environment", "unspecified (legacy evaluation)"), "intended_environment": suite["environment"], "protocol": "adapted-runtime-v1", "judge_model": os.environ.get("DEEPRESEARCH_MODEL"),
+            "environment": evaluation.get("environment", "unspecified (legacy evaluation)"), "intended_environment": suite["environment"], "protocol": "adapted-runtime-v2", "judge_model": os.environ.get("DEEPRESEARCH_MODEL"),
             "judge_effort": os.environ.get("DEEPRESEARCH_REASONING_EFFORT"), "judge_seconds": args.seconds,
             "judge_environment": args.judge_environment, "judge_source_tools": sorted(filter(None, (s.strip() for s in os.environ.get("DEEPRESEARCH_SOURCE_TOOLS", "").split(",")))),
             "judge_tool_calls": args.tool_calls, "batch_size": args.batch_size, "mode": evaluation["mode"],
             "source_evaluation": str(Path(args.evaluation).resolve()), "qualification": args.qualification,
-            "note": "Published task criteria with a substituted judge/prompt. Not native leaderboard results; source checks are inspectable model judgments, not proof of correctness.", "records": records})
+            "note": "Published task criteria with a substituted judge/prompt. Not native leaderboard results; answer-set agreement and nugget coverage are distinct from source support. Source checks are inspectable model judgments, not proof of correctness.", "records": records})
 
 
 

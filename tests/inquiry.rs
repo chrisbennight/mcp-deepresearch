@@ -150,6 +150,7 @@ async fn three_arm_comparison_requires_observed_sessions_for_multi_agent_claims(
         id: "research".into(),
         single_session_policy: false,
         baseline_first: false,
+        order_offset: None,
         request: request(),
         assess: vec![],
     };
