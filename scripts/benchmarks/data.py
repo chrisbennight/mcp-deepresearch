@@ -19,9 +19,9 @@ def write(path, value):
 
 def rows(path):
     path = Path(path)
-    if path.suffix == ".csv":
+    if path.suffix in (".csv", ".tsv"):
         with path.open(newline="") as f:
-            return list(csv.DictReader(f))
+            return list(csv.DictReader(f, delimiter="\t" if path.suffix == ".tsv" else ","))
     if path.suffix == ".json":
         return read(path)
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
@@ -40,14 +40,31 @@ CATALOG = {
     "deepsearchqa": {"source": "https://huggingface.co/datasets/google/deepsearchqa", "paper": "https://arxiv.org/abs/2601.20975", "metrics": ["precision", "recall", "f1", "complete"], "access": "Apache-2.0 CSV. Local semantic matching uses the configured runtime, not the prescribed native autorater."},
     "trec-rag": {"source": "https://trec.nist.gov/data/rag2024.html", "paper": "https://arxiv.org/abs/2411.09607", "metrics": ["strict_vital", "strict_all", "vital", "all"], "access": "TREC 2024 nugget_assignment.20241218.jsonl or RAGDoll nuggets JSONL. Corpus access and judgment rights are separate. Nugget presence is not source support."},
     "drb1": {"source": "https://github.com/Ayanami0730/deep_research_bench", "paper": "https://deepresearch-bench.github.io/", "metrics": ["RACE", "FACT"], "access": "Import query.jsonl; export reports for the upstream RACE/FACT evaluator. No local substitute for its reference-relative score."},
-    "deer": {"source": "https://github.com/hanjanghoon/DEER", "paper": "https://arxiv.org/abs/2512.17776", "metrics": ["report_quality", "verification"], "access": "Conditional: noncommercial, no dataset redistribution. Use upstream evaluator and import scores. Dataset importer not supplied until an authorized release is available."},
+    "deer": {"source": "https://github.com/hanjanghoon/DEER", "paper": "https://arxiv.org/abs/2512.17776", "metrics": ["report_quality", "verification"], "access": "Conditional: noncommercial, no dataset redistribution. Import an authorized extracted data directory; upstream-run executes report and verification evaluation."},
+    "ragtime": {"source": "https://github.com/hltcoe/auto-argue", "paper": "https://arxiv.org/abs/2509.26184", "metrics": ["nugget_coverage", "sentence_support", "citation_support", "f1"], "access": "Released ARGUE v3 nugget banks, matching corpus and report requests. Register for restricted track material. Upstream-run uses Auto-ARGUE."},
     "reflect": {"source": "https://github.com/LWang-Laura/REFLECT", "paper": "https://arxiv.org/abs/2605.19196", "metrics": ["defect_detection", "order_consistency"], "access": "Locally obtained holistic_200cases.jsonl. Grader diagnostic, excluded from agent scorecards; code is not vendored."},
 }
 
 
 def import_tasks(kind, path, ids=None, allow_noncommercial=False, topics=None):
     tasks = {}
-    for n, row in enumerate(rows(path)):
+    if kind == "deer":
+        if not allow_noncommercial:
+            raise ValueError("DEER requires --allow-noncommercial and an authorized extracted dataset")
+        source_rows = []
+        for query in sorted(Path(path).glob("*/*/query.md")):
+            if not query.parent.name.isdecimal():
+                continue
+            relative = query.parent.relative_to(path)
+            source_rows.append(dict(id=".".join(relative.parts), prompt=query.read_text(),
+                core_criteria=(query.parent/"core_criteria.md").read_text(),
+                domain=relative.parts[0], sample=relative.parts[1]))
+    elif kind == "ragtime":
+        paths = sorted(Path(path).glob("*.v3.json")) if Path(path).is_dir() else [Path(path)]
+        source_rows = [read(p) for p in paths]
+    else:
+        source_rows = rows(path)
+    for n, row in enumerate(source_rows):
         if kind == "drb2":
             key, prompt = str(row["idx"]), row["prompt"]
             license_ = row["license"]
@@ -69,6 +86,14 @@ def import_tasks(kind, path, ids=None, allow_noncommercial=False, topics=None):
         elif kind == "trec-rag":
             key, prompt, license_ = str(row["qid"]), row.get("query") or topics[str(row["qid"])], "Obtain rights for selected TREC release"
             reference = {"criteria": [{"id": str(i), "text": r["text"], "dimension": r["importance"], "weight": 1} for i, r in enumerate(row["nuggets"])]}
+        elif kind == "deer":
+            key, prompt, license_ = row["id"], row["prompt"], "DEER noncommercial; no redistribution"
+            reference = {"core_criteria": row["core_criteria"], "domain": file_id(row["domain"]), "sample": file_id(row["sample"])}
+        elif kind == "ragtime":
+            key, prompt, license_ = str(row["query_id"]), row["full_query"], "Obtain rights for selected ARGUE/RAGtime release"
+            if row.get("full_background"):
+                prompt += "\n\n" + row["full_background"]
+            reference = {"nugget_bank": row["nugget_bank"], "source_record": row}
         elif kind == "drb1":
             key, prompt, license_ = str(row["id"]), row["prompt"], "Apache-2.0 dataset"
             reference = {}
@@ -77,7 +102,7 @@ def import_tasks(kind, path, ids=None, allow_noncommercial=False, topics=None):
         file_id(key)
         if ids and key not in ids:
             continue
-        task = {"id": key, "prompt": prompt, "license": license_, "reference": reference}
+        task = {"id": key, "prompt": prompt, "license": license_, "reference": reference, "source_record": row}
         if key in tasks and tasks[key] != task:
             raise ValueError(f"conflicting reference for task {key}")
         tasks[key] = task

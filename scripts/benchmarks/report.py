@@ -83,11 +83,11 @@ def report(args):
         for item in card["summary"]:
             metric = item["metric"].lower()
             dimension = None
-            if metric in {"info_recall", "inforecall", "recall", "strict_vital", "strict_all", "vital", "all"}:
+            if metric in {"info_recall", "inforecall", "recall", "strict_vital", "strict_all", "vital", "all", "strict_vital_score", "strict_all_score", "vital_score", "all_score", "nugget_coverage", "nugget_coverage_weighted", "comprehensiveness"}:
                 dimension = "information_coverage"
-            elif "analysis" in metric or "synthesis" in metric:
+            elif "analysis" in metric or "synthesis" in metric or metric == "insight":
                 dimension = "analysis_and_synthesis"
-            elif metric in {"citation_support", "source_support", "factual_support", "verification"}:
+            elif metric in {"citation_support", "sentence_support", "source_support", "factual_support", "verification", "citation_accuracy", "hard_precision", "hard_recall", "weighted_precision_first", "weighted_precision_all", "weighted_recall_first", "weighted_recall_all"}:
                 dimension = "source_support"
             elif metric in {"presentation", "compliance"} or "instruction" in metric:
                 dimension = "request_fit"

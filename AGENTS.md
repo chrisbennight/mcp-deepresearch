@@ -10,5 +10,8 @@ bypass hooks. Run the README checks and read explicit successful exit statuses b
 committing or pushing. Review against user-visible outcomes, not implementation trivia.
 
 The application owns research decisions and mutable notes. Restate owns execution.
-All model work uses the runtime adapter. MCP gateway policy remains authoritative.
+Application model work uses the runtime adapter. Explicit benchmark-only upstream
+evaluation may use its published provider recipe when the operator selects --execute;
+keep this separate from production execution and label substitutions.
+MCP gateway policy remains authoritative.
 Do not add hidden paid-model calls or replace native Tasks with undocumented polling.

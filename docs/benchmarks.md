@@ -2,8 +2,9 @@
 
 Use the benchmark commands to compare research configurations on published tasks,
 without asking people to author a new reference set. The Python command uses only the
-standard library for dataset conversion and reporting; all model work goes through the
-Rust runtime. Ordinary tests require no model account, datasets or API credentials.
+standard library for dataset conversion and reporting. Research and adapted grading use
+the Rust runtime. The explicit `upstream-run --execute` path instead invokes published
+evaluators in a separately prepared environment and may incur provider charges. Ordinary tests require no model account, datasets or API credentials.
 
 This is a collection of distinct evaluations, not a universal research score. Preserve
 native results from upstream evaluators. The built-in grading path substitutes our
@@ -14,13 +15,14 @@ follows the publication. A local run is not an official leaderboard submission.
 
 | Component | Input and supported behavior | What it tells us |
 | --- | --- | --- |
-| DeepResearch Bench II | Released `tasks_and_rubrics.jsonl`; prepare, run, adapted rubric grading, upstream Markdown export | Information recall versus analysis versus presentation; blocked-reference rate |
-| ResearchRubrics | Authorized `processed_data.jsonl`; prepare, run, adapted weighted grading, upstream Markdown export | Task-specific explicit/implicit requirements and synthesis; negative-weight penalties retained |
-| DeepSearchQA | Official `DSQA-full.csv`; prepare, run, adapted semantic answer matching | Answer-set precision, recall, F1 and completeness |
+| DeepResearch Bench II | Released `tasks_and_rubrics.jsonl`; prepare, run, adapted rubric grading, upstream evaluator execution and score collection | Information recall versus analysis versus presentation; blocked-reference rate |
+| ResearchRubrics | Authorized `processed_data.jsonl`; prepare, run, adapted weighted grading, upstream evaluator execution and score collection | Task-specific explicit/implicit requirements and synthesis; negative-weight penalties retained |
+| DeepSearchQA | Official `DSQA-full.csv`; prepare, run, adapted semantic matching or published-prompt Gemini adapter | Answer-set precision, recall, F1 and completeness |
 | TREC RAG | TREC 2024 nugget assignments, RAGDoll nugget JSONL, or RAG 2026 development nuggets with topic TSV | Essential and all-nugget coverage, strict and partial credit; presence is not citation support |
-| DeepResearch Bench I | Released `query.jsonl`; prepare, run, upstream report export and score import | Keep upstream RACE report quality and FACT source assessment separate |
-| DEER | Upstream evaluation and flat per-task score import using a locally prepared suite/evaluation | Optional report and source verification; no automated dataset importer or data redistribution |
-| REFLECT | Authorized holistic JSONL; order-swapped diagnostic through the runtime | Whether a judge notices published defects; not an agent-quality score |
+| DeepResearch Bench I | Released `query.jsonl`; prepare, run, upstream RACE/FACT execution and score collection | Keep upstream RACE report quality and FACT source assessment separate |
+| DEER | Authorized extracted data directory; prepare, run, upstream report/verification execution and score collection | Report quality and source verification; noncommercial data stays private |
+| RAGtime / ARGUE | Released v3 nugget banks; prepare, run, Auto-ARGUE annotation/scoring and score collection | AND/OR nugget coverage, sentence and citation support; matching collection required |
+| REFLECT | Holistic, chunk, reasoning and tool-use JSONL; order-swapped diagnostics through the runtime | Whether a judge notices published defects; not an agent-quality score |
 
 The command's `catalog` includes source and paper links. Dataset access and code rights
 are separate. ResearchRubrics is gated. DRB II excludes noncommercial tasks unless
@@ -123,6 +125,64 @@ Missing task scores remain null. Giving a recipe name does not certify protocol
 conformance: source restrictions, population, grader and output requirements still
 matter. Do not call an adapted run native merely because its arithmetic matches.
 
+## Execute the published evaluator
+
+`upstream-run` prepares the selected arm's inputs and a readable `recipe.json`.
+Add `--execute` to actually run it. Install the upstream project's declared dependencies
+in its own environment beforehand and pass that environment's interpreter with
+`--python`. Use trusted checkouts cloned over SSH. This command neither installs those
+dependencies nor obtains API keys; its subprocesses inherit the operator's environment.
+Upstream retry policies and charges apply. The research Gateway key grants source
+access; it is not a Gemini, OpenAI, Jina or LiteLLM credential.
+
+```sh
+uv run --no-project python scripts/benchmark.py upstream-run \
+  /private/eval/drb2/suite.json /private/eval/experiment/run-0-0/evaluation.json \
+  /private/eval/drb2-upstream --checkout /private/upstream/DeepResearch-Bench-II \
+  --python /private/upstream/DeepResearch-Bench-II/.venv/bin/python \
+  --arm perspective --judge YOUR_UPSTREAM_MODEL --judge-environment upstream-open-web
+```
+
+Inspect the recipe, then repeat with `--execute` and a **new output directory**.
+Completed execution produces `scores.json` accepted by `report --scores` alongside
+adapted scores. Keep upstream logs and raw judgments with it. A failed stage exits
+unsuccessfully and retains its inputs and completed artifacts; it is not a scored run.
+Evaluate repeats separately to prevent duplicate task IDs overwriting reports.
+Re-prepare older suites to retain the original fields required by upstream evaluators.
+
+| Evaluator | Additional inputs and environment | Interpretation and current external gaps |
+| --- | --- | --- |
+| DRB I RACE/FACT | Complete upstream checkout including reference reports and criteria; its configured OpenRouter/OpenAI models and Jina credentials | `--judge` is a descriptive label for the actual multi-model recipe, not a model override. Retain upstream model configuration. Citation accuracy excludes unresolved judgments, whose count is reported separately. |
+| DRB II | Upstream Python dependencies and OpenAI-compatible API configuration; `--judge` selects the judge | Uses released rubric, blocked-reference and aggregation code. Missing per-task results stay missing. |
+| ResearchRubrics | Authorized gated dataset, LiteLLM environment and reachable published model | Published entry point fixes `litellm_proxy/gemini/gemini-2.5-pro-preview-06-05`; the adapter requires that label. Availability of this older model must be checked in the provider environment. Use adapted grading for a different judge. |
+| DeepSearchQA | `--autorater-prompt` with the complete published Python-format template; `GEMINI_API_KEY`; `--judge` selects model | Adapter uses the published response schema and single/set-answer arithmetic. Preserve the supplied prompt; changed prompt/model is an adapted recipe. Publication uses Gemini 2.5 Flash. This REST adapter is not the original notebook execution. |
+| DEER | Extract authorized archive, then `prepare deer DATA_DIRECTORY ... --allow-noncommercial`; upstream dependencies, OpenAI and Jina credentials | Verification uses upstream default judge; report evaluation uses `--judge`. Released temporary example directories are excluded. No dataset redistribution. |
+| TREC RAG / RAGDoll | `--resolved-answers` containing original sentences, citation indices and cited passage text; upstream runner/model environment | Executes nugget coverage and source-support evaluation separately. Matching corpus access and upstream runtime setup remain prerequisites. |
+| RAGtime / Auto-ARGUE | `--structured-reports`, `--collection-dir`, `--collection`; matching lookup files/corpus, upstream dependencies and provider selected by `--provider` | Preserves released AND/OR nugget banks and upstream support conventions. A sample bank is not full-track access. Unreleased track judgments cannot be run yet. |
+
+Model output is Markdown. For TREC/ARGUE, the following command converts saved answers
+through the configured subscription runtime, without rewriting their claims:
+
+```sh
+uv run --no-project python scripts/benchmark.py structure-reports \
+  /private/eval/experiment/run-0-0/evaluation.json /private/eval/structured \
+  --arm perspective --corpus /private/data/permitted-pool.jsonl
+```
+
+It emits `argue-reports.jsonl` and `trec-answers.jsonl`. The latter includes resolved
+passages when `--corpus` is supplied. Otherwise resolve them through RAGDoll against
+the matching corpus. Text preservation is checked; sentence segmentation and citation
+association remain model-assisted adaptations. Feed the corresponding file to
+`--structured-reports` or `--resolved-answers`. Original native-format reports may
+instead be supplied directly, with the saved answer's research ID as `run_id`.
+Do not claim official protocol compliance merely because upstream scoring ran.
+
+The adapters provide executable paths, not a claim that every provider-backed recipe
+has been exercised locally. Offline contract checks cover release formats and score
+collection. Live subscription diagnostics and any provider-backed execution should be
+reported separately. Required paid-provider credentials, gated data, full corpora and
+unreleased judgments are external prerequisites; they must not become zero scores.
+
 ## Controlled corpus access
 
 The evaluation-only `corpus` command offers search/read over locally obtained JSONL
@@ -160,7 +220,11 @@ uv run --no-project python scripts/benchmark.py report /private/eval/summary.jso
 ```
 
 REFLECT diagnostics compare original and perturbed reports in both presentation
-orders and preserve ties/unresolved judgments. This tests sensitivity without creating
+orders and preserve ties/unresolved judgments. Use `--family chunk`, `reasoning`, or
+`tool-use` for their released fields; the default is `holistic`. Results retain
+per-defect detection counts. The inspected tool-use release contains malformed JSONL
+records and requires a corrected upstream release or explicitly documented subset;
+the importer does not silently repair or discard them. This tests sensitivity without creating
 human-authored benchmark cases. It does not automatically validate every rubric or
 answer-set grader. Use `grade --qualification` to identify the relevant diagnostic
 and its limitations; no automatic pass threshold is asserted.
@@ -182,7 +246,9 @@ quality scores. Unknown costs and tokens remain unknown in the underlying result
 - [DeepResearch Bench II](https://arxiv.org/abs/2601.08536), [data terms and evaluator](https://github.com/imlrz/DeepResearch-Bench-II).
 - [DeepSearchQA](https://arxiv.org/abs/2601.20975), [data and native autorater protocol](https://huggingface.co/datasets/google/deepsearchqa/blob/main/README.md).
 - [TREC RAG](https://trec-rag.github.io/), [official data](https://github.com/TREC-RAG/trec-rag-data), [AutoNuggetizer](https://arxiv.org/abs/2411.09607), [RAGDoll](https://github.com/castorini/RAGDoll).
+- [Auto-ARGUE implementation](https://github.com/hltcoe/auto-argue), [automatic ARGUE evaluation](https://arxiv.org/abs/2509.26184).
 - [ARGUE](https://arxiv.org/abs/2405.00982), [RAGtime 2025 revised overview](https://arxiv.org/html/2602.10024v2), [2026 request decomposition](https://trec-ragtime.github.io/).
+- [DEER released data](https://huggingface.co/datasets/LG-AI-Research/DEER-Deep-Research-Benchmark).
 - [DEER](https://arxiv.org/abs/2512.17776), [data restrictions](https://github.com/hanjanghoon/DEER/blob/main/DATA_LICENSE).
 - [REFLECT](https://arxiv.org/abs/2605.19196), [published release](https://github.com/LWang-Laura/REFLECT).
 

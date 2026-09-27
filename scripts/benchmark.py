@@ -4,7 +4,7 @@ import argparse
 import json
 import subprocess
 import sys
-from benchmarks import data, runner, report
+from benchmarks import data, runner, report, upstream, structure
 
 
 def positive(value):
@@ -19,7 +19,7 @@ def main():
     commands = p.add_subparsers(dest="command", required=True)
     commands.add_parser("catalog")
     prepare = commands.add_parser("prepare")
-    prepare.add_argument("benchmark", choices=["drb2", "researchrubrics", "deepsearchqa", "trec-rag", "drb1"])
+    prepare.add_argument("benchmark", choices=["drb2", "researchrubrics", "deepsearchqa", "trec-rag", "drb1", "deer", "ragtime"])
     prepare.add_argument("input")
     prepare.add_argument("output")
     prepare.add_argument("--release", required=True)
@@ -65,12 +65,21 @@ def main():
     qualify.add_argument("output")
     qualify.add_argument("--release", required=True)
     qualify.add_argument("--ids", nargs="+")
+    qualify.add_argument("--family", choices=["holistic", "chunk", "reasoning", "tool-use"], default="holistic")
     qualify.add_argument("--limit", type=positive, default=3)
     for sub in (run, grade, qualify):
         sub.add_argument("--binary", default="target/debug/mcp-deepresearch")
     for sub in (grade, qualify):
         sub.add_argument("--seconds", type=positive, default=600)
         sub.add_argument("--tool-calls", type=positive, default=24)
+    structure_command = commands.add_parser("structure-reports")
+    structure_command.add_argument("evaluation")
+    structure_command.add_argument("output")
+    structure_command.add_argument("--arm", required=True)
+    structure_command.add_argument("--corpus", help="authorized id/text JSONL to resolve cited passages")
+    structure_command.add_argument("--binary", default="target/debug/mcp-deepresearch")
+    structure_command.add_argument("--seconds", type=positive, default=600)
+    upstream.add_arguments(commands)
     result = commands.add_parser("report")
     result.add_argument("output")
     result.add_argument("--scores", nargs="+", required=True)
@@ -80,7 +89,7 @@ def main():
         print(json.dumps(data.CATALOG, indent=2))
     else:
         {"prepare": data.prepare, "run": runner.run, "grade": runner.grade, "export": runner.export,
-         "native-import": runner.native_import, "qualify": runner.qualify, "report": report.report}[args.command](args)
+         "native-import": runner.native_import, "qualify": runner.qualify, "report": report.report, "upstream-run": upstream.run, "structure-reports": structure.run}[args.command](args)
 
 
 if __name__ == "__main__":
