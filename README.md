@@ -16,6 +16,13 @@ records verified Gateway behavior and its remaining report-file integration gap.
 See the [service guide](docs/service.md). Progress is tracked in the
 [implementation epic](https://github.com/chrisbennight/mcp-deepresearch/issues/1).
 
+## Published benchmark evaluation
+
+Use the [benchmark guide](docs/benchmarks.md) to import published tasks, compare
+research policies against the single-session control, assess saved answers, and
+produce separate coverage, synthesis and evidence scorecards. Local substituted
+graders are labeled adapted; upstream scores remain distinct.
+
 ## Build
 
 Install Rust with rustup, then run:

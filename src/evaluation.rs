@@ -20,6 +20,8 @@ pub struct Case {
     /// Compare policy guidance within one session, without workflow handoffs.
     #[serde(default)]
     pub single_session_policy: bool,
+    #[serde(default)]
+    pub baseline_first: bool,
     pub request: ResearchRequest,
     pub assess: Vec<String>,
 }
@@ -118,7 +120,7 @@ pub async fn compare<R: AgentRuntime>(
             ResearchPolicy::Adaptive => "adaptive",
             ResearchPolicy::Perspective => "perspective",
         };
-        let arms = if index % 2 == 0 {
+        let arms = if index % 2 == 0 && !case.baseline_first {
             [policy_arm, "single_session"]
         } else {
             ["single_session", policy_arm]

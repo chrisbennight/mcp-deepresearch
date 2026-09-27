@@ -2,3 +2,5 @@
 /.worktrees/
 /.env
 /workspaces/
+
+__pycache__/
