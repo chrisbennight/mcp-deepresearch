@@ -6,6 +6,8 @@ more viewpoints, longer answers or additional model sessions are inherently bett
 The `perspective` policy builds on adaptive source access and mutable questions. The
 production default remains unchanged pending evidence.
 
+The initial comparison is complete: see the [results and recommendation](perspective-study-results.md).
+
 ## Research behavior
 
 ```mermaid
@@ -54,6 +56,12 @@ adaptive working-question guidance; the control receives neither. Therefore this
 comparison of the combined policy, not an isolated estimate of the perspective paragraph's
 effect beyond the earlier adaptive policy. An adaptive-only ablation can answer that
 separate question if these results justify it.
+
+The control is the existing single-session agent, not an unconfigured chat prompt.
+Both arms retain the common source-grounding instructions and the selected strategy.
+Focused strategy already asks for disconfirming evidence; comparison strategy already
+asks for alternatives and evidence that could change the recommendation. The treatment
+adds explicit domain-sensitive perspective discovery and revisable working questions.
 
 The runner alternates arm order across cases. Preserve failed and partial attempts,
 report runtime separately from quality, and extend paired allowances if a limit actually
