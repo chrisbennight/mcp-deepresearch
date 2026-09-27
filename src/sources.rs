@@ -152,9 +152,9 @@ impl AssignmentSources {
                 .find(|t| t.name.as_ref() == name)
                 .cloned()
                 .ok_or_else(|| failure("a configured source tool was not discovered"))?;
-            if tool.annotations.as_ref().and_then(|a| a.read_only_hint) != Some(true) {
+            if tool.annotations.as_ref().and_then(|a| a.read_only_hint) == Some(false) {
                 return Err(failure(
-                    "configured source tools must declare read-only behavior",
+                    "configured source tools must not declare writable behavior",
                 ));
             }
             // The adapter returns excerpts rather than the upstream's original result shape.
