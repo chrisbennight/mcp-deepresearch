@@ -72,6 +72,17 @@ judgment does not silently disappear from the denominator. Report failure rates,
 partial results, and actual resource use alongside answer quality. Distinguish source
 or runtime outages from wrong answers, while retaining them in reliability results.
 
+Treat a time-limited result as delivery under that constraint, not the workflow's
+maximum achievable quality. If a limit binds, run a paired comparison with a longer
+allowance for both arms and preserve the original observation. Keep quality scores
+independent of elapsed time; report completion and runtime separately. Inspect other
+limits before interpreting a longer run, and compare additional correct, useful detail
+when the requirement score reaches its ceiling. Do not silently replace weak attempts
+with stronger retries or infer a causal time benefit from fresh stochastic runs.
+
+The [first scored study](evaluations/2026-09-27-gpt6-astra-medium-baseline.md) reports
+the baseline, two experimental policies, and longer-budget comparisons.
+
 ## Experimental policies
 
 The request's optional `policy` chooses an experiment independently of its subject

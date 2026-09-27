@@ -7,8 +7,10 @@ This is an early implementation. A fixture-backed controller can investigate, wr
 and review a cited answer without credentials. The MCP service uses Restate for durable
 execution, clarification, cancellation, and revision. A configured Codex adapter is
 available for live assignments. Actual Codex/current-MCP compatibility is verified
-against a local fixture source; live Kagi research has been exercised, while comparative quality must be established
-with the [scored evaluation](docs/scored-evaluation.md).
+against a local fixture source. The [first scored study](docs/evaluations/2026-09-27-gpt6-astra-medium-baseline.md)
+compares live Kagi research policies with a single-session control, including longer-budget
+runs. It is an initial evaluation, not evidence of general superiority; see the
+[scored evaluation guide](docs/scored-evaluation.md).
 The [deployment guide](docs/deployment.md#verified-integration-and-remaining-gap)
 records verified Gateway behavior and its remaining report-file integration gap.
 See the [service guide](docs/service.md). Progress is tracked in the
