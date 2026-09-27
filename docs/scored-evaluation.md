@@ -62,6 +62,11 @@ Make any corrections in the judgments file with evidence, then recompute:
 cargo run --locked -- score evals/scored/reference.json ./baseline/evaluation.json ./baseline-assessment/judgments.json ./baseline-assessment/scores-reviewed.json
 ```
 
+Assessment saves completed judgments but does not automatically resume an interrupted
+assessment directory. To recover without repeating completed model calls, assess only
+the remaining measurement IDs in a separate directory with their saved answers, combine
+the judgments, and score the original full evaluation. Keep the original partial file.
+
 The scorer requires every run and every criterion to be accounted for. A missing
 judgment does not silently disappear from the denominator. Report failure rates,
 partial results, and actual resource use alongside answer quality. Distinguish source

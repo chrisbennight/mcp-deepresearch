@@ -86,7 +86,16 @@ impl Controller {
         })
     }
 
-    pub fn complete(&mut self, result: AssignmentResult) -> Result<(), ResearchError> {
+    pub fn complete(&mut self, mut result: AssignmentResult) -> Result<(), ResearchError> {
+        // A focused investigation adds evidence; it does not replace the working answer.
+        // Adaptive completion explicitly delivers a complete answer to the original objective.
+        if self.kind == AssignmentKind::Investigate
+            && !self.workspace.draft.is_empty()
+            && !(self.workspace.request.policy == ResearchPolicy::Adaptive
+                && matches!(result.next, NextAction::Finish))
+        {
+            result.draft = None;
+        }
         let next = self.workspace.apply(result)?;
         if self.workspace.request.policy == ResearchPolicy::Adaptive {
             match next {
