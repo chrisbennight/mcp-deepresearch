@@ -37,6 +37,7 @@ def runtime(binary, arguments):
         for arm in ('perspective','single_session'):
             rid=output.parent.name+'-'+output.name+'-'+arm
             (output/(rid+'.md')).write_text('Answer A with a cited source.')
+            data.write(output/(rid+'.json'),dict(draft='Answer A',notes=[]))
             records.append(dict(research_id=rid,case=case['id'],arm=arm,outcome='completed',elapsed_ms=1000,usage={}))
         data.write(output/'evaluation.json',dict(mode='fixture',measurements=records))
     elif operation == 'assess':

@@ -77,10 +77,15 @@ def grade(args):
         rid = file_id(measurement["research_id"])
         answer_path = Path(args.evaluation).parent / f"{rid}.md"
         answer = answer_path.read_text()
+        workspace = read(answer_path.with_suffix(".json"))
+        has_answer = bool(workspace["draft"].strip() or workspace["notes"])
         reference = task["reference"]
         # The assessment receives neither arm labels, timing nor completion state.
         context = {"question": task["prompt"], "answer": answer, "reference": reference}
-        if kind == "deepsearchqa":
+        if not has_answer:
+            judgment = {"consequential_errors": [], "unresolved": ["No research answer or collected findings were produced; quality is unscored."]}
+            metrics = {}
+        elif kind == "deepsearchqa":
             judgment = assess(args.binary, {"objective": SET_JUDGE, "context": json.dumps(context, ensure_ascii=False), "seconds": args.seconds, "tool_calls": args.tool_calls}, output / rid)
             metrics = set_metrics(judgment)
         else:
@@ -96,7 +101,7 @@ def grade(args):
             judgment = {"items": all_items, "consequential_errors": sorted(set(errors)), "unresolved": sorted(set(unresolved))}
             metrics = rubric_metrics(kind, criteria, judgment)
         record = {"research_id": rid, "case": task["id"], "arm": agent_label(evaluation, measurement), "outcome": measurement["outcome"],
-            "elapsed_ms": measurement["elapsed_ms"], "usage": measurement["usage"], "metrics": metrics, "judgment": judgment}
+            "elapsed_ms": measurement["elapsed_ms"], "usage": measurement["usage"], "metrics": metrics, "judgment": judgment, "graded": has_answer}
         records.append(record)
         write(output / "scores.json", {"benchmark": kind, "release": suite["release"], "population": suite["population"],
             "environment": evaluation.get("environment", "unspecified (legacy evaluation)"), "intended_environment": suite["environment"], "protocol": "adapted-runtime-v1", "judge_model": os.environ.get("DEEPRESEARCH_MODEL"),

@@ -67,7 +67,7 @@ def report(args):
     inputs = [read(path) for path in args.scores]
     result = {"scorecards": summarize(inputs), "coverage": [{k: r.get(k) for k in ("benchmark", "release", "population", "qualification", "source_evaluation")} for r in inputs],
               "note": "No cross-benchmark composite: scales differ. Quality is not time-discounted. Unknown scores stay missing; native and adapted recipes never share an average.", "experiments": []}
-    scored = {r["research_id"] for s in inputs for r in s["records"]}
+    scored = {r["research_id"] for s in inputs for r in s["records"] if r.get("graded", True)}
     for experiment in args.experiments:
         p = Path(experiment)
         manifest = read(p)
