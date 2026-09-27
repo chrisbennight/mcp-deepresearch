@@ -38,8 +38,7 @@ provides source tools, initially Kagi search and reading. Research material live
 a mutable workspace; this project is not an immutable artifact ledger.
 
 See [architecture](docs/architecture.md), [contributing](CONTRIBUTING.md), and
-[security](SECURITY.md). License selection is pending the repository owner's choice;
-public visibility alone does not grant an open-source license.
+[security](SECURITY.md). Licensed under [Apache-2.0](LICENSE).
 
 ## Try the fixture workflow
 
