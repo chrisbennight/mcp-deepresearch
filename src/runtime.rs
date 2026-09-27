@@ -99,13 +99,33 @@ impl AgentRuntime for FixtureRuntime {
             return Err(RuntimeError::Cancelled);
         }
         let mut result = AssignmentResult {
+            research_plan: None,
             questions: vec![],
             sources: vec![], findings: vec![], uncertainties: vec!["These are invented fixture documents; no live research or quality assessment occurred.".into()],
             outline: vec![], draft: None, next: NextAction::Finish,
             usage: Usage { tool_calls: Some(0), ..Usage::default() },
         };
         match assignment.kind {
-            AssignmentKind::Investigate => {
+            AssignmentKind::Reconnaissance => {
+                result.research_plan = Some(ResearchPlan {
+                    primary: "Investigate recovery".into(),
+                    independent: "Investigate complexity and exceptions".into(),
+                });
+                result.questions = vec![ResearchQuestion {
+                    id: "Q1".into(),
+                    question: "What affects recovery?".into(),
+                    important: true,
+                    answer: String::new(),
+                    sources: vec![],
+                    remaining_gap: "Find evidence".into(),
+                }];
+            }
+            AssignmentKind::CoverageReview => {
+                result.next = NextAction::Synthesize;
+            }
+            AssignmentKind::PrimaryResearch
+            | AssignmentKind::IndependentResearch
+            | AssignmentKind::Investigate => {
                 result.sources = self.sources.clone();
                 result.findings = self
                     .sources

@@ -16,6 +16,14 @@ records verified Gateway behavior and its remaining report-file integration gap.
 See the [service guide](docs/service.md). Progress is tracked in the
 [implementation epic](https://github.com/chrisbennight/mcp-deepresearch/issues/1).
 
+## Multi-agent research
+
+The opt-in `multi_agent` policy uses separate research sessions, materialized evidence
+handoffs and review that can request further research. Its evaluation includes the same
+method in one session and the ordinary single-agent baseline. See the
+[research method and verification](docs/multi-agent-research.md). Superiority remains
+an empirical question; the production default is unchanged.
+
 ## Published benchmark evaluation
 
 Run the public-data baseline with the existing Codex subscription and configured

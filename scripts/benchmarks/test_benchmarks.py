@@ -107,6 +107,15 @@ class PublishedContracts(unittest.TestCase):
             self.assertEqual(saved["configuration"], "candidate")
             self.assertEqual(saved["environment"], "controlled")
 
+    def test_unverified_workflow_retains_scores_without_entering_comparative_mean(self):
+        records = [dict(research_id=str(i), case="a", arm="multi", metrics={"recall":value}, outcome="completed", elapsed_ms=1000,
+                        comparison_eligible=eligible, judgment=dict(consequential_errors=[], unresolved=[]))
+                   for i, (value, eligible) in enumerate([(1, False), (.5, True)])]
+        cards = summarize([dict(benchmark="test", records=records)])
+        self.assertEqual(cards[0]["summary"][0]["task_macro_mean"], .5)
+        self.assertEqual(cards[0]["summary"][0]["excluded_workflow_attempts"], 1)
+        self.assertEqual(cards[0]["records"][0]["metrics"]["recall"], 1)
+
     def test_repeats_do_not_outweigh_tasks_and_judges_stay_separate(self):
         def record(rid, task, arm, value, outcome="completed"):
             return dict(research_id=rid, case=task, arm=arm, metrics={"recall":value}, outcome=outcome, elapsed_ms=5000, judgment=dict(consequential_errors=[], unresolved=[]))

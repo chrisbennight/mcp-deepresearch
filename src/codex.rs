@@ -405,6 +405,14 @@ fn prompt(assignment: &Assignment) -> String {
     if assignment.policy == ResearchPolicy::Perspective {
         text.push_str(include_str!("../prompts/perspective.md"));
     }
+    if matches!(
+        assignment.policy,
+        ResearchPolicy::QuestionDriven | ResearchPolicy::MultiAgent
+    ) {
+        text.push_str(include_str!("../prompts/question-driven.md"));
+        text.push_str(&format!("\nAllocate NEW source IDs starting at S{} to keep independent investigations distinct. Preserve IDs of supplied sources.\n", assignment.number * 10_000));
+        text.push_str(crate::inquiry::guidance(assignment.kind));
+    }
     text
 }
 
@@ -434,6 +442,7 @@ async fn run_process(
     slots: Arc<Semaphore>,
     progress: &watch::Sender<WorkerSnapshot>,
 ) -> Result<AssignmentResult, RuntimeError> {
+    let started = std::time::Instant::now();
     let remaining = assignment.time_remaining();
     if remaining.is_zero() {
         return Err(RuntimeError::TimedOut);
@@ -450,6 +459,12 @@ async fn run_process(
         .create(&dir)
         .map_err(storage_error)?;
     write_snapshot(&dir, &progress.borrow())?;
+    std::fs::write(
+        dir.join("assignment.json"),
+        serde_json::to_vec_pretty(&assignment).expect("assignment serializes"),
+    )
+    .map_err(storage_error)?;
+    std::fs::write(dir.join("prompt.txt"), prompt(&assignment)).map_err(storage_error)?;
     let schema_path = dir.join("schema.json");
     std::fs::write(
         &schema_path,
@@ -484,6 +499,11 @@ async fn run_process(
                 .collect();
             if assignment.policy != ResearchPolicy::Staged {
                 for number in 1..assignment.number {
+                    // Independent initial research can read the common reconnaissance,
+                    // but not the other researcher's retrieved material or conclusions.
+                    if assignment.kind == AssignmentKind::IndependentResearch && number != 1 {
+                        continue;
+                    }
                     let previous = config
                         .work_root
                         .join(format!("{}-{number}", assignment.research_id))
@@ -693,6 +713,18 @@ async fn run_process(
     let mut result: AssignmentResult = serde_json::from_slice(&bytes)
         .map_err(|_| RuntimeError::Failed("worker returned an invalid research result".into()))?;
     usage.tool_calls = saw_events.then_some(tool_calls);
+    usage.session_id = progress.borrow().session_id.clone();
+    usage.elapsed_ms = Some(started.elapsed().as_millis().min(u64::MAX as u128) as u64);
     result.usage = usage;
+    std::fs::write(
+        dir.join("result.json"),
+        serde_json::to_vec_pretty(&result).expect("result serializes"),
+    )
+    .map_err(storage_error)?;
+    std::fs::write(
+        dir.join("findings.md"),
+        crate::inquiry::render_findings(&result),
+    )
+    .map_err(storage_error)?;
     Ok(result)
 }

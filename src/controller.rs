@@ -12,18 +12,26 @@ pub struct Controller {
     pub strategy: Strategy,
     pub started_at: u64,
     reviews: u32,
+    #[serde(default)]
+    inquiry: crate::inquiry::Inquiry,
 }
 
 impl Controller {
     pub fn new(workspace: Workspace, now: u64) -> Self {
+        let multi_agent = workspace.request.policy == ResearchPolicy::MultiAgent;
         Self {
             trace_context: TraceContext::default(),
             focus: workspace.request.objective.clone(),
             strategy: workspace.request.strategy,
             workspace,
-            kind: AssignmentKind::Investigate,
+            kind: if multi_agent {
+                AssignmentKind::Reconnaissance
+            } else {
+                AssignmentKind::Investigate
+            },
             started_at: now,
             reviews: 0,
+            inquiry: crate::inquiry::Inquiry::default(),
         }
     }
 
@@ -56,7 +64,10 @@ impl Controller {
             };
             return None;
         }
-        if remaining_assignments == 1 && self.kind == AssignmentKind::Investigate {
+        if self.workspace.request.policy != ResearchPolicy::MultiAgent
+            && remaining_assignments == 1
+            && self.kind == AssignmentKind::Investigate
+        {
             self.kind = AssignmentKind::Synthesize;
             self.focus = "Use available evidence to produce the best partial answer; disclose unfinished research.".into();
         }
@@ -80,13 +91,26 @@ impl Controller {
             focus: self.focus.clone(),
             strategy: self.strategy,
             format: self.workspace.request.format,
-            context: self.workspace.context(&self.focus),
+            context: if self.workspace.request.policy == ResearchPolicy::MultiAgent {
+                self.inquiry
+                    .context(&self.workspace, self.kind, &self.focus)
+            } else {
+                self.workspace.context(&self.focus)
+            },
             remaining_seconds,
             remaining_tool_calls,
         })
     }
 
     pub fn complete(&mut self, mut result: AssignmentResult) -> Result<(), ResearchError> {
+        if self.workspace.request.policy == ResearchPolicy::MultiAgent {
+            return self.inquiry.complete(
+                &mut self.workspace,
+                &mut self.kind,
+                &mut self.focus,
+                result,
+            );
+        }
         // A focused investigation adds evidence; it does not replace the working answer.
         // Adaptive completion explicitly delivers a complete answer to the original objective.
         if self.kind == AssignmentKind::Investigate
@@ -144,7 +168,11 @@ impl Controller {
             }
             _ => {
                 match self.kind {
-                    AssignmentKind::Investigate => {
+                    AssignmentKind::Reconnaissance
+                    | AssignmentKind::PrimaryResearch
+                    | AssignmentKind::IndependentResearch
+                    | AssignmentKind::CoverageReview
+                    | AssignmentKind::Investigate => {
                         self.kind = AssignmentKind::Synthesize;
                         self.focus = "Synthesize the findings into a cited answer for the requested purpose.".into();
                     }

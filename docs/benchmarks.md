@@ -117,3 +117,9 @@ Paid-provider evaluators, gated-data integrations, native score import/export an
 report-conversion machinery have been removed from this tooling. The scope is a
 baseline we can actually operate with existing access. Track work in the
 [benchmark epic](https://github.com/chrisbennight/mcp-deepresearch/issues/25).
+
+## Multi-agent comparison
+
+Use `--policy multi_agent` to compare the question-driven method across agents, the
+same method in one session, and the ordinary single-session control. Verify observed
+sessions and handoffs before interpreting quality; see [workflow verification](multi-agent-research.md#verify-before-interpreting-scores).

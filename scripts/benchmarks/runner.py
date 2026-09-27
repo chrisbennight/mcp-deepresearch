@@ -19,6 +19,7 @@ def run(args):
     output = Path(args.output).resolve()
     output.mkdir(parents=True, exist_ok=False)
     write(output / "experiment.json", {"cases": cases, "repeats": args.repeats, "mode": args.mode,
+        "assigned_attempts": args.repeats * sum(3 if c["request"].get("policy") == "multi_agent" else 2 for c in cases),
         "model": os.environ.get("DEEPRESEARCH_MODEL"), "reasoning_effort": os.environ.get("DEEPRESEARCH_REASONING_EFFORT"),
         "source_tools": os.environ.get("DEEPRESEARCH_SOURCE_TOOLS", "").split(","),
         "environment": args.environment, "configuration": args.configuration,
@@ -78,6 +79,7 @@ def grade(args):
         answer_path = Path(args.evaluation).parent / f"{rid}.md"
         answer = answer_path.read_text()
         workspace = read(answer_path.with_suffix(".json"))
+        workflow_valid = measurement.get("workflow_verified") is not False
         has_answer = bool(workspace["draft"].strip() or workspace["notes"])
         reference = task["reference"]
         # The assessment receives neither arm labels, timing nor completion state.
@@ -101,7 +103,7 @@ def grade(args):
             judgment = {"items": all_items, "consequential_errors": sorted(set(errors)), "unresolved": sorted(set(unresolved))}
             metrics = rubric_metrics(kind, criteria, judgment)
         record = {"research_id": rid, "case": task["id"], "arm": agent_label(evaluation, measurement), "outcome": measurement["outcome"],
-            "elapsed_ms": measurement["elapsed_ms"], "usage": measurement["usage"], "metrics": metrics, "judgment": judgment, "graded": has_answer}
+            "elapsed_ms": measurement["elapsed_ms"], "usage": measurement["usage"], "metrics": metrics, "judgment": judgment, "graded": has_answer, "workflow_verified": measurement.get("workflow_verified"), "comparison_eligible": workflow_valid}
         records.append(record)
         write(output / "scores.json", {"benchmark": kind, "release": suite["release"], "population": suite["population"],
             "environment": evaluation.get("environment", "unspecified (legacy evaluation)"), "intended_environment": suite["environment"], "protocol": "adapted-runtime-v1", "judge_model": os.environ.get("DEEPRESEARCH_MODEL"),

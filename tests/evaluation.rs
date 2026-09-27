@@ -96,6 +96,7 @@ impl AgentRuntime for PartialDraft {
         _: CancellationToken,
     ) -> Result<AssignmentResult, RuntimeError> {
         Ok(AssignmentResult {
+            research_plan: None,
             questions: vec![],
             sources: vec![],
             findings: vec![],

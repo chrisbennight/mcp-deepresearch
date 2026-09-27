@@ -138,7 +138,11 @@ impl Workspace {
         if let Some(draft) = &result.draft {
             check_citations(draft, &sources)?;
         }
-        if self.request.policy.allows_direct_completion() {
+        if self.request.policy == ResearchPolicy::MultiAgent {
+            for question in result.questions {
+                self.questions.insert(question.id.clone(), question);
+            }
+        } else if self.request.policy.allows_direct_completion() {
             self.questions = result
                 .questions
                 .into_iter()

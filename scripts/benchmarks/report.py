@@ -37,12 +37,13 @@ def summarize(reports):
                 task_values = defaultdict(list)
                 for r in rs:
                     value = r["metrics"].get(metric)
-                    if value is not None:
+                    if value is not None and r.get("comparison_eligible", True):
                         task_values[r["case"]].append(value)
                 summary.append({"arm": arm, "metric": metric, "task_macro_mean": mean(mean(v) for v in task_values.values()) if task_values else None,
                     "scored_tasks": len(task_values), "observed_tasks": len({r["case"] for r in rs}), "attempts": len(rs),
                     "scored_attempts": sum(r["metrics"].get(metric) is not None for r in rs),
                     "missing_metric_attempts": sum(r["metrics"].get(metric) is None for r in rs),
+                    "excluded_workflow_attempts": sum(not r.get("comparison_eligible", True) for r in rs),
                     "completed": sum(r["outcome"] == "completed" for r in rs), "mean_seconds": mean(r["elapsed_ms"]/1000 for r in rs),
                     "errors": sum(len(r["judgment"]["consequential_errors"]) for r in rs),
                     "unresolved": sum(len(r["judgment"]["unresolved"]) for r in rs)})
@@ -51,7 +52,7 @@ def summarize(reports):
                 av, bv = defaultdict(list), defaultdict(list)
                 for r in records:
                     value = r["metrics"].get(metric)
-                    if value is not None and r["arm"] in (a, b):
+                    if value is not None and r.get("comparison_eligible", True) and r["arm"] in (a, b):
                         (av if r["arm"] == a else bv)[r["case"]].append(value)
                 common = sorted(av.keys() & bv.keys())
                 differences = [mean(av[k])-mean(bv[k]) for k in common]
@@ -66,7 +67,7 @@ def summarize(reports):
 def report(args):
     inputs = [read(path) for path in args.scores]
     result = {"scorecards": summarize(inputs), "coverage": [{k: r.get(k) for k in ("benchmark", "release", "population", "qualification", "source_evaluation")} for r in inputs],
-              "note": "No cross-benchmark composite: scales differ. Quality is not time-discounted. Unknown scores stay missing; native and adapted recipes never share an average.", "experiments": []}
+              "note": "No cross-benchmark composite: scales differ. Quality is not time-discounted. Unverified multi-agent runs retain raw scores but are excluded from comparative means. Unknown scores stay missing; native and adapted recipes never share an average.", "experiments": []}
     scored = {r["research_id"] for s in inputs for r in s["records"] if r.get("graded", True)}
     for experiment in args.experiments:
         p = Path(experiment)
@@ -75,7 +76,7 @@ def report(args):
         for evaluation in p.parent.glob("run-*/evaluation.json"):
             observed.extend(read(evaluation)["measurements"])
         result["experiments"].append({"configuration": manifest["configuration"], "environment": manifest["environment"],
-            "assigned_attempts": len(manifest["cases"])*manifest["repeats"]*2,
+            "assigned_attempts": manifest.get("assigned_attempts", len(manifest["cases"])*manifest["repeats"]*2),
             "observed_attempts": len(observed), "graded_attempts": sum(m["research_id"] in scored for m in observed),
             "completed_attempts": sum(m["outcome"] == "completed" for m in observed), "manifest": str(p)})
     capabilities = {"information_coverage": [], "analysis_and_synthesis": [], "source_support": [], "request_fit": []}
@@ -112,6 +113,8 @@ def report(args):
         for s in card["summary"]:
             value = "unresolved" if s["task_macro_mean"] is None else f"{s['task_macro_mean']:.4f}"
             lines.append(f"| {s['arm']} | {s['metric']} | {value} | {s['scored_tasks']}/{s['observed_tasks']} | {s['scored_attempts']}/{s['attempts']} | {s['completed']}/{s['attempts']} | {s['mean_seconds']:.1f} | {s['errors']} | {s['unresolved']} |")
+        excluded = sum(not r.get("comparison_eligible", True) for r in card["records"])
+        lines.append(f"Unverified workflow attempts excluded from means: {excluded}. Raw judgments remain in the scorecard records.")
         lines.extend(["", "Paired differences average repeated attempts within each task. Intervals resample tasks, not criteria; no interval is claimed for a single task.", ""])
         for p in card["paired"]:
             lines.append(f"- {p['metric']}: {p['difference']}; difference {p['mean_difference']}; tasks {p['paired_tasks']}; interval {p['task_bootstrap_95_interval']}; missing metric attempts by arm {p['missing_metric_attempts']}.")
