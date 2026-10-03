@@ -1,27 +1,49 @@
 name: CI
 on:
   pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select checks from actual inputs
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bash .ci/select-checks.sh
+      - name: Check workflow syntax
+        if: steps.scope.outputs.workflows == 'true'
+        run: bash .ci/check-workflows.sh
       - name: Install the repository toolchain
+        if: steps.scope.outputs.rust == 'true' || steps.scope.outputs.integration == 'true'
         run: rustup show
       - name: Formatting
+        if: steps.scope.outputs.rust == 'true'
         run: cargo fmt --all -- --check
       - name: Clippy
+        if: steps.scope.outputs.rust == 'true'
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Build
+        if: steps.scope.outputs.rust == 'true'
         run: cargo build --locked
       - name: Tests
+        if: steps.scope.outputs.rust == 'true'
         run: cargo test --locked
       - uses: astral-sh/setup-uv@v7
+        if: steps.scope.outputs.python == 'true'
       - name: Published benchmark contracts
+        if: steps.scope.outputs.python == 'true'
         run: PYTHONPATH=scripts uv run --no-project python -m unittest discover -s scripts/benchmarks -t scripts
       - name: Native MCP and Restate integration
+        if: steps.scope.outputs.integration == 'true'
         run: scripts/test-integration.sh
