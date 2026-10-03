@@ -49,6 +49,12 @@ claiming compatibility with untested compiler versions. Public Cargo sources and
 the committed application lockfile make builds independent of private services.
 Building and ordinary tests require no model account or credentials.
 
+CI selects Rust checks, Python benchmark contracts, and native MCP/Restate
+integration from their inputs. Documentation does not install the toolchain or
+start containers. Benchmark changes do not start Restate; test-only Rust changes
+run source checks, with the native integration test selected separately. Manual
+validation runs all checks. Ordinary CI does not call live models or publish releases.
+
 ## Direction
 
 Restate owns durable execution and execution visibility. A replaceable worker
