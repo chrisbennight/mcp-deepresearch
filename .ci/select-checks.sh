@@ -23,7 +23,7 @@ else
       .github/workflows/*|.ci/check-workflows.sh) workflows=true ;;
       Cargo.toml|Cargo.lock|rust-toolchain.toml|.cargo/*) rust=true; integration=true ;;
       src/main.rs|src/lib.rs|src/mcp.rs|src/lifecycle.rs|src/controller.rs|src/research.rs|src/runtime.rs|src/workspace.rs|src/files.rs) rust=true; integration=true ;;
-      tests/restate_mcp.rs) integration=true ;;
+      tests/restate_mcp.rs) rust=true; integration=true ;;
       src/*|prompts/*|build.rs|tests/*.rs|tests/fixtures/*|rustfmt.toml|.rustfmt.toml|clippy.toml|.clippy.toml) rust=true ;;
       scripts/test-integration.sh) integration=true ;;
       scripts/benchmarks/*|scripts/benchmark.py) python=true ;;

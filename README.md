@@ -53,7 +53,9 @@ CI selects Rust checks, Python benchmark contracts, and native MCP/Restate
 integration from their inputs. Documentation does not install the toolchain or
 start containers. Benchmark changes do not start Restate; test-only Rust changes
 run source checks, with the native integration test selected separately. Manual
-validation runs all checks. Ordinary CI does not call live models or publish releases.
+validation runs all checks. Automatic validation runs on pull requests; merging
+an already qualified change does not repeat the checks. Direct main changes
+require manual validation. Ordinary CI does not call live models or publish releases.
 
 ## Direction
 
